@@ -75,6 +75,14 @@ namespace StardewClaudeCompanion
             { "BlueDiscus", "蓝盘丽鱼" },
             { "Legend", "传说鱼" },
             { "Stingray", "黄貂鱼" },
+            { "Stonefish", "石鱼" },
+            { "Crimsonfish", "赤鱼" },
+            { "Slimejack", "史莱姆鱼" },
+            { "SonofCrimsonfish", "赤鱼之子" },
+            { "MsAngler", "鮟鱇夫人" },
+            { "LegendII", "传说鱼II" },
+            { "RadioactiveCarp", "放射性鲤鱼" },
+            { "GlacierfishJr", "冰川幼鱼" },
         };
     }
 }
