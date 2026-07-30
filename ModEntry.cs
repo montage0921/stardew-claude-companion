@@ -12,6 +12,7 @@ namespace StardewClaudeCompanion
         private FishCollectionService fishService = null!;
         private CropCollectionService cropService = null!;
         private MineralCollectionService mineralService = null!;
+        private ArtifactCollectionService artifactService = null!;
 
         public override void Entry(IModHelper helper)
         {
@@ -20,6 +21,7 @@ namespace StardewClaudeCompanion
             this.fishService = new FishCollectionService(this.Helper, this.Monitor);
             this.cropService = new CropCollectionService(this.Helper, this.Monitor);
             this.mineralService = new MineralCollectionService(this.Helper, this.Monitor);
+            this.artifactService = new ArtifactCollectionService(this.Helper, this.Monitor);
             this.Monitor.Log("Stardew Claude Companion loaded successfully!", LogLevel.Info);
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
         }
@@ -50,6 +52,10 @@ namespace StardewClaudeCompanion
             else if (e.Button == SButton.F10)
             {
                 this.mineralService.PrintMissingMinerals();
+            }
+            else if (e.Button == SButton.F11)
+            {
+                this.artifactService.PrintMissingArtifacts();
             }
         }
     }
