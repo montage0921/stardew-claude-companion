@@ -1,0 +1,10 @@
+{
+  "Name": "Stardew Claude Companion",
+  "Author": "Gary",
+  "Version": "1.0.0",
+  "Description": "Ask Claude questions about your farm using your actual save data.",
+  "UniqueID": "Gary.StardewClaudeCompanion",
+  "EntryDll": "StardewClaudeCompanion.dll",
+  "MinimumApiVersion": "4.0.0",
+  "UpdateKeys": []
+}
