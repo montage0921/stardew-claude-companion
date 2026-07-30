@@ -6,6 +6,7 @@ using StardewValley.GameData.Locations;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace StardewClaudeCompanion
 {
@@ -16,8 +17,13 @@ namespace StardewClaudeCompanion
             "SonofCrimsonfish", "MsAngler", "LegendII", "GlacierfishJr", "RadioactiveCarp",
         };
 
+        private Config Config = null!;
+        private ClaudeApiClient? claudeClient;
+
         public override void Entry(IModHelper helper)
         {
+            this.Config = this.Helper.ReadConfig<Config>();
+            this.claudeClient = new ClaudeApiClient(this.Config.AnthropicApiKey);
             this.Monitor.Log("Stardew Claude Companion loaded successfully!", LogLevel.Info);
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
         }
@@ -31,6 +37,16 @@ namespace StardewClaudeCompanion
                 this.PrintCaughtFish();
             else if (e.Button == SButton.F6)
                 this.PrintMissingFishWithDetails();
+            else if (e.Button == SButton.F8)
+            {
+                this.Monitor.Log("正在问 Claude...", LogLevel.Info);
+                Task.Run(async () =>
+                {
+                    string testContext = "{\"caughtFishCount\": 69, \"currentSeason\": \"summer\", \"playerGold\": 50000}";
+                    string answer = await this.claudeClient!.AskAsync("我现在钓鱼进度怎么样？", testContext);
+                    this.Monitor.Log($"Claude 回答: {answer}", LogLevel.Info);
+                });
+            }
         }
 
         private string GetEnglishKey(string rawDisplayName)
@@ -66,7 +82,6 @@ namespace StardewClaudeCompanion
                 .Select(k => k.Replace("(O)", ""))
                 .ToHashSet();
 
-            // 第一步：从 Data/Locations 反向建立 "鱼ID -> (地点列表, 季节列表)" 的映射
             var fishLocationMap = new Dictionary<string, (List<string> Locations, HashSet<string> Seasons)>();
 
             foreach (var locEntry in allLocations)
@@ -86,13 +101,11 @@ namespace StardewClaudeCompanion
                     if (!fishLocationMap[fishId].Locations.Contains(locationName))
                         fishLocationMap[fishId].Locations.Add(locationName);
 
-                    // Season 字段可能是 null（代表全季节）或具体季节列表
                     if (fishSpawn.Season.HasValue)
                         fishLocationMap[fishId].Seasons.Add(fishSpawn.Season.Value.ToString());
                 }
             }
 
-            // 第二步：遍历所有鱼，找出还没钓到的，组装详细信息
             var missing = new List<FishRequirement>();
 
             foreach (var fishEntry in allFishData)
@@ -113,7 +126,6 @@ namespace StardewClaudeCompanion
                     NameZh = FishData.Names.ContainsKey(englishKey) ? FishData.Names[englishKey] : englishKey
                 };
 
-                // 判断是否是 trap（蟹笼）类型，字段结构不同
                 bool isTrap = fields.Length > 1 && fields[1] == "trap";
 
                 if (!isTrap && fields.Length > 13)
@@ -138,7 +150,6 @@ namespace StardewClaudeCompanion
                 return;
             }
 
-            // 当前游戏状态
             string currentSeason = Game1.currentSeason;
             bool isRaining = Game1.isRaining;
             int currentTime = Game1.timeOfDay;
@@ -162,6 +173,44 @@ namespace StardewClaudeCompanion
                 this.Monitor.Log($"    季节: {(fish.Seasons.Count > 0 ? string.Join(",", fish.Seasons) : "任意")} | 天气: {fish.Weather} | 需等级: {fish.MinFishingLevel} | 地点: {locationStr}", LogLevel.Info);
                 this.Monitor.Log($"    {status}", LogLevel.Info);
             }
+        }
+
+        private string BuildGameSnapshot()
+        {
+            var allObjects = this.Helper.GameContent.Load<Dictionary<string, ObjectData>>("Data/Objects");
+            var fishCaught = Game1.player.fishCaught;
+
+            var caughtFishList = new List<object>();
+            foreach (var entry in fishCaught.Pairs)
+            {
+                string rawId = entry.Key.Replace("(O)", "");
+                string englishKey = allObjects.ContainsKey(rawId)
+                    ? this.GetEnglishKey(allObjects[rawId].DisplayName)
+                    : rawId;
+                caughtFishList.Add(new
+                {
+                    name = englishKey,
+                    count = entry.Value[0]
+                });
+            }
+
+            var snapshot = new
+            {
+                playerName = Game1.player.Name,
+                currentSeason = Game1.currentSeason,
+                currentDay = Game1.dayOfMonth,
+                currentYear = Game1.year,
+                isRaining = Game1.isRaining,
+                timeOfDay = Game1.timeOfDay,
+                playerGold = Game1.player.Money,
+                fishingLevel = Game1.player.FishingLevel,
+                farmingLevel = Game1.player.FarmingLevel,
+                miningLevel = Game1.player.MiningLevel,
+                totalFishCaughtSpecies = fishCaught.Count(),
+                caughtFish = caughtFishList
+            };
+
+            return System.Text.Json.JsonSerializer.Serialize(snapshot);
         }
     }
 }
