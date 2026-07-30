@@ -1,7 +1,5 @@
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
-using StardewValley;
-using System.Threading.Tasks;
 
 namespace StardewClaudeCompanion
 {
@@ -13,6 +11,7 @@ namespace StardewClaudeCompanion
         private CropCollectionService cropService = null!;
         private MineralCollectionService mineralService = null!;
         private ArtifactCollectionService artifactService = null!;
+        private CookingCollectionService cookingService = null!;
 
         public override void Entry(IModHelper helper)
         {
@@ -22,6 +21,7 @@ namespace StardewClaudeCompanion
             this.cropService = new CropCollectionService(this.Helper, this.Monitor);
             this.mineralService = new MineralCollectionService(this.Helper, this.Monitor);
             this.artifactService = new ArtifactCollectionService(this.Helper, this.Monitor);
+            this.cookingService = new CookingCollectionService(this.Helper, this.Monitor);
             this.Monitor.Log("Stardew Claude Companion loaded successfully!", LogLevel.Info);
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
         }
@@ -35,16 +35,6 @@ namespace StardewClaudeCompanion
                 this.fishService.PrintCaughtFish();
             else if (e.Button == SButton.F6)
                 this.fishService.PrintMissingFishWithDetails();
-            else if (e.Button == SButton.F8)
-            {
-                this.Monitor.Log("正在问 Claude...", LogLevel.Info);
-                Task.Run(async () =>
-                {
-                    string context = GameSnapshotBuilder.Build(this.Helper);
-                    string answer = await this.claudeClient!.AskAsync("我现在钓鱼进度怎么样？", context);
-                    this.Monitor.Log($"Claude 回答: {answer}", LogLevel.Info);
-                });
-            }
             else if (e.Button == SButton.F9)
             {
                 this.cropService.PrintMissingCrops();
@@ -53,9 +43,13 @@ namespace StardewClaudeCompanion
             {
                 this.mineralService.PrintMissingMinerals();
             }
-            else if (e.Button == SButton.F11)
+            else if (e.Button == SButton.F1)
             {
                 this.artifactService.PrintMissingArtifacts();
+            }
+            else if (e.Button == SButton.F2)
+            {
+                this.cookingService.PrintMissingRecipes();
             }
         }
     }

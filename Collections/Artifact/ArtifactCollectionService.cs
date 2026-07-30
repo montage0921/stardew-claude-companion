@@ -3,6 +3,7 @@ using StardewValley;
 using StardewValley.GameData.Objects;
 using StardewValley.Locations;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace StardewClaudeCompanion
 {
@@ -37,7 +38,8 @@ namespace StardewClaudeCompanion
                 missing.Add(new ArtifactRequirement
                 {
                     EnglishKey = englishKey,
-                    NameZh = ArtifactNameData.Names.ContainsKey(englishKey) ? ArtifactNameData.Names[englishKey] : englishKey
+                    NameZh = ArtifactNameData.Names.ContainsKey(englishKey) ? ArtifactNameData.Names[englishKey] : englishKey,
+                    DigSources = new Dictionary<string, float>(objEntry.Value.ArtifactSpotChances)
                 });
             }
 
@@ -52,6 +54,17 @@ namespace StardewClaudeCompanion
             foreach (var artifact in missing)
             {
                 this.monitor.Log($"  {artifact.NameZh} / {artifact.EnglishKey}", LogLevel.Info);
+
+                if (artifact.DigSources.Count == 0)
+                {
+                    this.monitor.Log("    获得方式: 不是通过挖掘古器物地点获得(可能来自商店/怪物掉落/任务奖励，暂无数据)", LogLevel.Info);
+                    continue;
+                }
+
+                foreach (var source in artifact.DigSources.OrderByDescending(s => s.Value))
+                {
+                    this.monitor.Log($"    可在 {source.Key} 挖掘古器物点获得，概率约 {source.Value * 100:0.#}%", LogLevel.Info);
+                }
             }
         }
     }

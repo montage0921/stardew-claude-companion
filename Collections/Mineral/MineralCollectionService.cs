@@ -1,8 +1,8 @@
 using StardewModdingAPI;
 using StardewValley;
 using StardewValley.GameData.Objects;
+using StardewValley.Locations;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace StardewClaudeCompanion
 {
@@ -20,7 +20,6 @@ namespace StardewClaudeCompanion
         public void PrintMissingMinerals()
         {
             var allObjects = this.helper.GameContent.Load<Dictionary<string, ObjectData>>("Data/Objects");
-            var foundIds = Game1.player.mineralsFound.Keys.ToHashSet();
 
             var missing = new List<MineralRequirement>();
 
@@ -31,7 +30,8 @@ namespace StardewClaudeCompanion
                 bool isMineral = data.Category == StardewValley.Object.mineralsCategory;
                 if (!isGem && !isMineral) continue;
 
-                if (foundIds.Contains(objEntry.Key)) continue;
+                // 矿物收藏页的判定标准和古器物一样，是博物馆捐赠状态，不是 Farmer.mineralsFound
+                if (LibraryMuseum.HasDonatedArtifact("(O)" + objEntry.Key)) continue;
 
                 string englishKey = GameDataHelper.GetEnglishKey(data.DisplayName);
                 if (MineralNameData.ExcludedFromCollection.Contains(englishKey)) continue;
