@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf \"/c/Users/nicai/AppData/Local/Temp/claude/c--Users-nicai-source-repos-stardew-claude-companion-StardewClaudeCompanion/fcfadeaf-b370-4900-b942-e1401e3a224b/scratchpad/inspect\")",
+      "Bash(dotnet tool *)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\nicai\\AppData\\Local\\Temp\\claude\\c--Users-nicai-source-repos-stardew-claude-companion-StardewClaudeCompanion\\fcfadeaf-b370-4900-b942-e1401e3a224b\\scratchpad\\inspect"
+    ]
+  }
+}

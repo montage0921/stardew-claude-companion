@@ -11,6 +11,7 @@ namespace StardewClaudeCompanion
         private ClaudeApiClient? claudeClient;
         private FishCollectionService fishService = null!;
         private CropCollectionService cropService = null!;
+        private MineralCollectionService mineralService = null!;
 
         public override void Entry(IModHelper helper)
         {
@@ -18,6 +19,7 @@ namespace StardewClaudeCompanion
             this.claudeClient = new ClaudeApiClient(this.Config.AnthropicApiKey);
             this.fishService = new FishCollectionService(this.Helper, this.Monitor);
             this.cropService = new CropCollectionService(this.Helper, this.Monitor);
+            this.mineralService = new MineralCollectionService(this.Helper, this.Monitor);
             this.Monitor.Log("Stardew Claude Companion loaded successfully!", LogLevel.Info);
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
         }
@@ -44,6 +46,10 @@ namespace StardewClaudeCompanion
             else if (e.Button == SButton.F9)
             {
                 this.cropService.PrintMissingCrops();
+            }
+            else if (e.Button == SButton.F10)
+            {
+                this.mineralService.PrintMissingMinerals();
             }
         }
     }
