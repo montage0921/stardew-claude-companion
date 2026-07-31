@@ -10,16 +10,16 @@ namespace StardewClaudeCompanion
     public class CropCollectionService
     {
         private readonly IModHelper helper;
-        private readonly IMonitor monitor;
 
-        public CropCollectionService(IModHelper helper, IMonitor monitor)
+        public CropCollectionService(IModHelper helper)
         {
             this.helper = helper;
-            this.monitor = monitor;
         }
 
-        public void PrintMissingCrops()
+        public List<string> GetMissingCropsReport()
         {
+            var lines = new List<string>();
+
             var allObjects = this.helper.GameContent.Load<Dictionary<string, ObjectData>>("Data/Objects");
             var allCrops = this.helper.GameContent.Load<Dictionary<string, CropData>>("Data/Crops");
 
@@ -56,22 +56,26 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                this.monitor.Log("恭喜，已运输过所有作物！", LogLevel.Info);
-                return;
+                lines.Add("恭喜，已运输过所有作物！ (Congratulations, shipped all crops!)");
+                return lines;
             }
 
             string currentSeason = Game1.currentSeason;
-            this.monitor.Log($"作物收集还差 {missing.Count} 种，当前季节: {currentSeason}", LogLevel.Info);
+            string seasonEn = currentSeason switch { "spring" => "Spring", "summer" => "Summer", "fall" => "Fall", "winter" => "Winter", _ => currentSeason };
+            lines.Add($"作物收集还差 {missing.Count} 种 (Missing {missing.Count} crops) | 当前季节: {currentSeason}({seasonEn})");
 
             foreach (var crop in missing)
             {
                 bool seasonOk = crop.Seasons.Count == 0 || crop.Seasons.Any(s => s.ToLower() == currentSeason.ToLower());
-                string status = seasonOk ? "✅ 现在能种" : "❌ 现在不是季节";
+                string status = seasonOk ? "✅ 现在能种 (Can plant now)" : "❌ 现在不是季节 (Wrong season)";
+                string seasonsCn = crop.Seasons.Count > 0 ? string.Join(",", crop.Seasons) : "任意 (Any)";
 
-                this.monitor.Log($"  {crop.NameZh} / {crop.EnglishKey}", LogLevel.Info);
-                this.monitor.Log($"    季节: {(crop.Seasons.Count > 0 ? string.Join(",", crop.Seasons) : "任意")} | 生长天数: {crop.DaysToGrow}", LogLevel.Info);
-                this.monitor.Log($"    {status}", LogLevel.Info);
+                lines.Add($"  {crop.NameZh} ({crop.EnglishKey})");
+                lines.Add($"    季节/Seasons: {seasonsCn} | 生长天数/Growth days: {crop.DaysToGrow}");
+                lines.Add($"    {status}");
             }
+
+            return lines;
         }
     }
 }

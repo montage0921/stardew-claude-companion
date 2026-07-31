@@ -15,30 +15,16 @@ namespace StardewClaudeCompanion
         };
 
         private readonly IModHelper helper;
-        private readonly IMonitor monitor;
 
-        public FishCollectionService(IModHelper helper, IMonitor monitor)
+        public FishCollectionService(IModHelper helper)
         {
             this.helper = helper;
-            this.monitor = monitor;
         }
 
-        public void PrintCaughtFish()
+        public List<string> GetMissingFishReport()
         {
-            var allObjects = this.helper.GameContent.Load<Dictionary<string, ObjectData>>("Data/Objects");
-            var fishCaught = Game1.player.fishCaught;
-            this.monitor.Log($"你一共钓到过 {fishCaught.Count()} 种鱼:", LogLevel.Info);
+            var lines = new List<string>();
 
-            foreach (var entry in fishCaught.Pairs)
-            {
-                string englishKey = GameDataHelper.ResolveEnglishKey(entry.Key, allObjects);
-                string nameZh = FishData.Names.ContainsKey(englishKey) ? FishData.Names[englishKey] : "?";
-                this.monitor.Log($"  {nameZh} / {englishKey} x{entry.Value[0]}", LogLevel.Info);
-            }
-        }
-
-        public void PrintMissingFishWithDetails()
-        {
             var allObjects = this.helper.GameContent.Load<Dictionary<string, ObjectData>>("Data/Objects");
             var allFishData = this.helper.GameContent.Load<Dictionary<string, string>>("Data/Fish");
             var allLocations = this.helper.GameContent.Load<Dictionary<string, LocationData>>("Data/Locations");
@@ -109,8 +95,8 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                this.monitor.Log("恭喜，已完成全鱼类收集！", LogLevel.Info);
-                return;
+                lines.Add("恭喜，已完成全鱼类收集！ (Congratulations, completed all fish collection!)");
+                return lines;
             }
 
             string currentSeason = Game1.currentSeason;
@@ -118,7 +104,10 @@ namespace StardewClaudeCompanion
             int currentTime = Game1.timeOfDay;
             int playerFishingLevel = Game1.player.FishingLevel;
 
-            this.monitor.Log($"图鉴还差 {missing.Count} 种，当前: {currentSeason}季 / {(isRaining ? "下雨" : "晴天")} / {currentTime}点 / 钓鱼等级{playerFishingLevel}", LogLevel.Info);
+            string seasonEn = currentSeason switch { "spring" => "Spring", "summer" => "Summer", "fall" => "Fall", "winter" => "Winter", _ => currentSeason };
+            string weatherCn = isRaining ? "下雨" : "晴天";
+            string weatherEn = isRaining ? "Rainy" : "Sunny";
+            lines.Add($"图鉴还差 {missing.Count} 种 (Missing {missing.Count} fish) | 当前: {currentSeason}({seasonEn})季 {weatherCn}({weatherEn}) {currentTime}点 钓鱼等级{playerFishingLevel}(Level {playerFishingLevel})");
 
             foreach (var fish in missing)
             {
@@ -129,13 +118,18 @@ namespace StardewClaudeCompanion
                 bool levelOk = playerFishingLevel >= fish.MinFishingLevel;
 
                 bool canCatchNow = seasonOk && weatherOk && levelOk;
-                string status = canCatchNow ? "✅ 现在能钓" : "❌ 现在不行";
+                string status = canCatchNow ? "✅ 现在能钓 (Can catch now)" : "❌ 现在不行 (Cannot catch now)";
 
-                this.monitor.Log($"  {fish.NameZh} / {fish.EnglishKey}", LogLevel.Info);
-                string locationStr = fish.Locations.Count > 0 ? string.Join(",", fish.Locations) : "特殊地点(矿洞/事件专属，待完善)";
-                this.monitor.Log($"    季节: {(fish.Seasons.Count > 0 ? string.Join(",", fish.Seasons) : "任意")} | 天气: {fish.Weather} | 需等级: {fish.MinFishingLevel} | 地点: {locationStr}", LogLevel.Info);
-                this.monitor.Log($"    {status}", LogLevel.Info);
+                lines.Add($"  {fish.NameZh} ({fish.EnglishKey})");
+                string locationStr = fish.Locations.Count > 0 ? string.Join(",", fish.Locations) : "特殊地点 (Special location)";
+                string seasonsStr = fish.Seasons.Count > 0 ? string.Join(",", fish.Seasons) : "任意 (Any)";
+                string weatherStr = fish.Weather == "both" || string.IsNullOrEmpty(fish.Weather) ? "任意 (Both)" :
+                                    fish.Weather == "rainy" ? "下雨 (Rainy)" : "晴天 (Sunny)";
+                lines.Add($"    季节/Seasons: {seasonsStr} | 天气/Weather: {weatherStr} | 需等级/Level: {fish.MinFishingLevel} | 地点/Location: {locationStr}");
+                lines.Add($"    {status}");
             }
+
+            return lines;
         }
     }
 }

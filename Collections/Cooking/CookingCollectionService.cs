@@ -8,16 +8,16 @@ namespace StardewClaudeCompanion
     public class CookingCollectionService
     {
         private readonly IModHelper helper;
-        private readonly IMonitor monitor;
 
-        public CookingCollectionService(IModHelper helper, IMonitor monitor)
+        public CookingCollectionService(IModHelper helper)
         {
             this.helper = helper;
-            this.monitor = monitor;
         }
 
-        public void PrintMissingRecipes()
+        public List<string> GetMissingRecipesReport()
         {
+            var lines = new List<string>();
+
             var allObjects = this.helper.GameContent.Load<Dictionary<string, ObjectData>>("Data/Objects");
 
             // 做菜能用背包 + 地图上所有箱子/冰箱/建筑储物，用游戏自带的遍历方法，覆盖面比自己查冰箱全面
@@ -70,20 +70,20 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                this.monitor.Log("恭喜，所有料理都做过了！", LogLevel.Info);
-                return;
+                lines.Add("恭喜，所有料理都做过了！ (Congratulations, cooked all recipes!)");
+                return lines;
             }
 
-            this.monitor.Log($"料理收藏还差 {missing.Count} 道:", LogLevel.Info);
+            lines.Add($"料理收藏还差 {missing.Count} 道 (Missing {missing.Count} recipes):");
 
             foreach (var recipe in missing)
             {
-                string status = recipe.IsKnown ? "✅ 已学会，还没做过" : "❌ 还没学会配方";
-                this.monitor.Log($"  {recipe.NameZh} / {recipe.EnglishKey} - {status}", LogLevel.Info);
+                string status = recipe.IsKnown ? "✅ 已学会，还没做过 (Learned but not cooked)" : "❌ 还没学会配方 (Recipe unknown)";
+                lines.Add($"  {recipe.NameZh} ({recipe.EnglishKey}) - {status}");
 
                 if (recipe.Ingredients.Count == 0)
                 {
-                    this.monitor.Log("    (无需材料)", LogLevel.Info);
+                    lines.Add("    (无需材料 / No ingredients needed)");
                     continue;
                 }
 
@@ -91,11 +91,13 @@ namespace StardewClaudeCompanion
                 {
                     string need = $"{ingredient.Name} x{ingredient.RequiredCount}";
                     string have = ingredient.MissingCount > 0
-                        ? $"(现有{ingredient.OwnedCount}，还缺{ingredient.MissingCount})"
-                        : "(已备齐)";
-                    this.monitor.Log($"    需要 {need} {have}", LogLevel.Info);
+                        ? $"(现有 {ingredient.OwnedCount}，还缺 {ingredient.MissingCount} / Have {ingredient.OwnedCount}, need {ingredient.MissingCount} more)"
+                        : "(已备齐 / Ready)";
+                    lines.Add($"    需要 {need} {have}");
                 }
             }
+
+            return lines;
         }
 
         // 统计背包 + 所有箱子/储物里能匹配这个食材/分类号的数量，和游戏本身做菜时的判定口径一致

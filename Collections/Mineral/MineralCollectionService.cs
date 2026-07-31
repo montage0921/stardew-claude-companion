@@ -9,16 +9,16 @@ namespace StardewClaudeCompanion
     public class MineralCollectionService
     {
         private readonly IModHelper helper;
-        private readonly IMonitor monitor;
 
-        public MineralCollectionService(IModHelper helper, IMonitor monitor)
+        public MineralCollectionService(IModHelper helper)
         {
             this.helper = helper;
-            this.monitor = monitor;
         }
 
-        public void PrintMissingMinerals()
+        public List<string> GetMissingMineralsReport()
         {
+            var lines = new List<string>();
+
             var allObjects = this.helper.GameContent.Load<Dictionary<string, ObjectData>>("Data/Objects");
 
             var missing = new List<MineralRequirement>();
@@ -46,17 +46,19 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                this.monitor.Log("恭喜，矿物收藏已全部集齐！", LogLevel.Info);
-                return;
+                lines.Add("恭喜，矿物收藏已全部集齐！ (Congratulations, completed all minerals!)");
+                return lines;
             }
 
-            this.monitor.Log($"矿物收藏还差 {missing.Count} 种:", LogLevel.Info);
+            lines.Add($"矿物收藏还差 {missing.Count} 种 (Missing {missing.Count} minerals):");
 
             foreach (var mineral in missing)
             {
-                string category = mineral.IsGem ? "宝石" : "矿物";
-                this.monitor.Log($"  {mineral.NameZh} / {mineral.EnglishKey} [{category}]", LogLevel.Info);
+                string category = mineral.IsGem ? "宝石 (Gem)" : "矿物 (Mineral)";
+                lines.Add($"  {mineral.NameZh} ({mineral.EnglishKey}) [{category}]");
             }
+
+            return lines;
         }
     }
 }
