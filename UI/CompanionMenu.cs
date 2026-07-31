@@ -8,6 +8,7 @@ using StardewValley.Menus;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace StardewClaudeCompanion
@@ -19,7 +20,8 @@ namespace StardewClaudeCompanion
         private const int LineHeight = 26;
         private const int IconSize = 32;
         private const int IconGutter = 40; // 图标列宽度，文字统一从这里开始画
-        private const int ChatTabIndex = 5;
+        private const int InProgressTabIndex = 5;
+        private const int ChatTabIndex = 6;
 
         // 复用游戏收藏页(CollectionsPage)/游戏菜单(GameMenu)里真实的图标坐标，视觉上和游戏自带菜单保持一致
         private static readonly (string Label, Rectangle IconSource)[] Tabs =
@@ -29,6 +31,7 @@ namespace StardewClaudeCompanion
             ("矿物", new Rectangle(672, 64, 16, 16)),
             ("古器物", new Rectangle(656, 64, 16, 16)),
             ("料理", new Rectangle(688, 64, 16, 16)),
+            ("进行中", new Rectangle(410, 501, 9, 9)), // 时钟图标
             ("Claude", new Rectangle(32, 368, 16, 16)),
         };
 
@@ -37,6 +40,7 @@ namespace StardewClaudeCompanion
         private readonly MineralCollectionService mineralService;
         private readonly ArtifactCollectionService artifactService;
         private readonly CookingCollectionService cookingService;
+        private readonly InProgressService inProgressService;
         private readonly ClaudeApiClient claudeClient;
         private readonly IModHelper helper;
         private readonly List<string> chatHistory;
@@ -68,6 +72,7 @@ namespace StardewClaudeCompanion
             MineralCollectionService mineralService,
             ArtifactCollectionService artifactService,
             CookingCollectionService cookingService,
+            InProgressService inProgressService,
             ClaudeApiClient claudeClient,
             IModHelper helper,
             List<string> chatHistory)
@@ -83,6 +88,7 @@ namespace StardewClaudeCompanion
             this.mineralService = mineralService;
             this.artifactService = artifactService;
             this.cookingService = cookingService;
+            this.inProgressService = inProgressService;
             this.claudeClient = claudeClient;
             this.helper = helper;
             this.chatHistory = chatHistory;
@@ -102,7 +108,7 @@ namespace StardewClaudeCompanion
                     drawShadow: false));
             }
 
-            this.chatInput = new TextBox(null, null, Game1.smallFont, Game1.textColor)
+            this.chatInput = new TextBox(null, null, this.contentFont, Game1.textColor)
             {
                 X = this.xPositionOnScreen + 32,
                 Y = this.yPositionOnScreen + WindowHeight - 80,
@@ -182,6 +188,7 @@ namespace StardewClaudeCompanion
                     2 => this.mineralService.GetMissingMineralsReport(),
                     3 => this.artifactService.GetMissingArtifactsReport(),
                     4 => this.cookingService.GetMissingRecipesReport(),
+                    InProgressTabIndex => this.inProgressService.GetInProgressReport(),
                     _ => new List<ReportLine>()
                 };
             }
@@ -293,11 +300,59 @@ namespace StardewClaudeCompanion
             this.chatHistory.Add($"你: {question}");
             this.chatInput.Text = "";
 
-            string context = GameSnapshotBuilder.Build(this.helper);
+            string context = GameSnapshotBuilder.Build(this.helper) + "\n\n" + this.BuildCollectionSummary(question) + "\n\n" + InventorySnapshotBuilder.Build();
             this.pendingResponse = Task.Run(() => this.claudeClient.AskAsync(question, context));
 
             this.RebuildWrappedLines();
             this.scrollOffset = this.MaxScroll;
+        }
+
+        private static readonly (string[] Keywords, string Title)[] CollectionTopics =
+        {
+            (new[] { "鱼", "钓", "fish" }, "鱼类收集"),
+            (new[] { "作物", "种", "菜", "水果", "crop", "plant" }, "作物收集"),
+            (new[] { "矿", "宝石", "mineral", "gem" }, "矿物收集"),
+            (new[] { "古器物", "古物", "文物", "artifact" }, "古器物收集"),
+            (new[] { "料理", "做菜", "食谱", "配方", "cook", "recipe" }, "料理收集"),
+        };
+
+        // 把本地已经算好的收集缺失清单转成纯文字，附加到发给 Claude 的上下文里，
+        // 这样问答能直接引用"还缺什么/怎么获得"，不需要 Claude 自己重新比对。
+        // 只加载和问题相关的分类，避免每次提问都把全部5类缺失清单(可能几千 token)塞进去。
+        private string BuildCollectionSummary(string question)
+        {
+            var sb = new System.Text.StringBuilder();
+
+            void AppendSection(string title, List<ReportLine> lines)
+            {
+                sb.Append("【").Append(title).Append("】\n");
+                foreach (var line in lines)
+                    sb.Append(line.Text).Append('\n');
+                sb.Append('\n');
+            }
+
+            bool matchedAny = false;
+            foreach (var topic in CollectionTopics)
+            {
+                if (!topic.Keywords.Any(k => question.Contains(k, System.StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                matchedAny = true;
+                var lines = topic.Title switch
+                {
+                    "鱼类收集" => this.fishService.GetMissingFishReport(),
+                    "作物收集" => this.cropService.GetMissingCropsReport(),
+                    "矿物收集" => this.mineralService.GetMissingMineralsReport(),
+                    "古器物收集" => this.artifactService.GetMissingArtifactsReport(),
+                    "料理收集" => this.cookingService.GetMissingRecipesReport(),
+                    _ => new List<ReportLine>()
+                };
+                AppendSection(topic.Title, lines);
+            }
+
+            // 问题没命中任何收集类关键词（比如单纯问库存物品），就不额外附加，
+            // InventorySnapshotBuilder 提供的物品清单已经够用。
+            return matchedAny ? sb.ToString() : "";
         }
 
         public override void update(GameTime time)
@@ -410,6 +465,10 @@ namespace StardewClaudeCompanion
 
             if (this.selectedTab == ChatTabIndex)
             {
+                // TextBox 在没有传入贴图时(我们传的是 null)不会画任何背景框，
+                // 这里手动画一个，不然输入框在视觉上完全没有边界。
+                IClickableMenu.drawTextureBox(b, this.chatInput.X - 8, this.chatInput.Y - 8, this.chatInput.Width + 16, this.chatInput.Height + 16, Color.White);
+
                 this.chatInput.Draw(b);
                 this.sendButton.draw(b);
             }

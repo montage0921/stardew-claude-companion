@@ -14,6 +14,7 @@ namespace StardewClaudeCompanion
         private MineralCollectionService mineralService = null!;
         private ArtifactCollectionService artifactService = null!;
         private CookingCollectionService cookingService = null!;
+        private InProgressService inProgressService = null!;
         private List<string> chatHistory = new();
         private CompanionHudButton hudButton = null!;
 
@@ -26,6 +27,7 @@ namespace StardewClaudeCompanion
             this.mineralService = new MineralCollectionService(this.Helper);
             this.artifactService = new ArtifactCollectionService(this.Helper);
             this.cookingService = new CookingCollectionService(this.Helper);
+            this.inProgressService = new InProgressService();
             this.hudButton = new CompanionHudButton(this.Helper);
             this.Monitor.Log("Stardew Claude Companion loaded successfully!", LogLevel.Info);
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
@@ -76,6 +78,7 @@ namespace StardewClaudeCompanion
                 this.mineralService,
                 this.artifactService,
                 this.cookingService,
+                this.inProgressService,
                 this.claudeClient,
                 this.Helper,
                 this.chatHistory);
