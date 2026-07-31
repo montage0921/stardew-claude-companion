@@ -20,7 +20,7 @@ namespace StardewClaudeCompanion
         {
             var requestBody = new
             {
-                model = "claude-sonnet-4-5",
+                model = "claude-haiku-4-5",
                 max_tokens = 1024,
                 messages = new[]
                 {
