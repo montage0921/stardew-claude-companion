@@ -4,6 +4,7 @@ namespace StardewClaudeCompanion
 {
     public class ArtifactRequirement
     {
+        public string ItemId = "";
         public string EnglishKey = "";
         public string NameZh = "";
 

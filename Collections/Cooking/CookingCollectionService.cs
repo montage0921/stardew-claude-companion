@@ -14,9 +14,9 @@ namespace StardewClaudeCompanion
             this.helper = helper;
         }
 
-        public List<string> GetMissingRecipesReport()
+        public List<ReportLine> GetMissingRecipesReport()
         {
-            var lines = new List<string>();
+            var lines = new List<ReportLine>();
 
             var allObjects = this.helper.GameContent.Load<Dictionary<string, ObjectData>>("Data/Objects");
 
@@ -47,6 +47,7 @@ namespace StardewClaudeCompanion
 
                 var requirement = new CookingRequirement
                 {
+                    ItemId = "(O)" + objEntry.Key,
                     EnglishKey = englishKey,
                     NameZh = CookingNameData.Names.ContainsKey(englishKey) ? CookingNameData.Names[englishKey] : englishKey,
                     IsKnown = isKnown
@@ -70,20 +71,20 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                lines.Add("恭喜，所有料理都做过了！");
+                lines.Add(ReportLine.Of("恭喜，所有料理都做过了！"));
                 return lines;
             }
 
-            lines.Add($"料理收藏还差 {missing.Count} 道:");
+            lines.Add(ReportLine.Of($"料理收藏还差 {missing.Count} 道:"));
 
             foreach (var recipe in missing)
             {
                 string status = recipe.IsKnown ? "【已学会】还没做过" : "【未学会】还没学会配方";
-                lines.Add($"  {recipe.NameZh} ({recipe.EnglishKey}) - {status}");
+                lines.Add(ReportLine.EntryTitle($"{recipe.NameZh} ({recipe.EnglishKey}) - {status}", recipe.ItemId));
 
                 if (recipe.Ingredients.Count == 0)
                 {
-                    lines.Add("    (无需材料)");
+                    lines.Add(ReportLine.Of("    (无需材料)"));
                     continue;
                 }
 
@@ -93,7 +94,7 @@ namespace StardewClaudeCompanion
                     string have = ingredient.MissingCount > 0
                         ? $"(现有 {ingredient.OwnedCount}，还缺 {ingredient.MissingCount})"
                         : "(已备齐)";
-                    lines.Add($"    需要 {need} {have}");
+                    lines.Add(ReportLine.Of($"    需要 {need} {have}"));
                 }
             }
 

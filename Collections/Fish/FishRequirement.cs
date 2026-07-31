@@ -4,6 +4,7 @@ namespace StardewClaudeCompanion
 {
     public class FishRequirement
     {
+        public string ItemId = "";
         public string EnglishKey = "";
         public string NameZh = "";
         public string TimeRange = "";

@@ -4,6 +4,7 @@ namespace StardewClaudeCompanion
 {
     public class CropRequirement
     {
+        public string ItemId = "";
         public string EnglishKey = "";
         public string NameZh = "";
         public List<string> Seasons = new();

@@ -16,9 +16,9 @@ namespace StardewClaudeCompanion
             this.helper = helper;
         }
 
-        public List<string> GetMissingArtifactsReport()
+        public List<ReportLine> GetMissingArtifactsReport()
         {
-            var lines = new List<string>();
+            var lines = new List<ReportLine>();
 
             var allObjects = this.helper.GameContent.Load<Dictionary<string, ObjectData>>("Data/Objects");
 
@@ -37,6 +37,7 @@ namespace StardewClaudeCompanion
 
                 missing.Add(new ArtifactRequirement
                 {
+                    ItemId = qualifiedId,
                     EnglishKey = englishKey,
                     NameZh = ArtifactNameData.Names.ContainsKey(englishKey) ? ArtifactNameData.Names[englishKey] : englishKey,
                     DigSources = objEntry.Value.ArtifactSpotChances != null ? new Dictionary<string, float>(objEntry.Value.ArtifactSpotChances) : new Dictionary<string, float>()
@@ -45,25 +46,25 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                lines.Add("恭喜，博物馆古器物已全部捐赠！");
+                lines.Add(ReportLine.Of("恭喜，博物馆古器物已全部捐赠！"));
                 return lines;
             }
 
-            lines.Add($"博物馆古器物收藏还差 {missing.Count} 件:");
+            lines.Add(ReportLine.Of($"博物馆古器物收藏还差 {missing.Count} 件:"));
 
             foreach (var artifact in missing)
             {
-                lines.Add($"  {artifact.NameZh} ({artifact.EnglishKey})");
+                lines.Add(ReportLine.EntryTitle($"{artifact.NameZh} ({artifact.EnglishKey})", artifact.ItemId));
 
                 if (artifact.DigSources.Count == 0)
                 {
-                    lines.Add("    获得方式: 不是通过挖掘古器物地点获得");
+                    lines.Add(ReportLine.Of("    获得方式: 不是通过挖掘古器物地点获得"));
                     continue;
                 }
 
                 foreach (var source in artifact.DigSources.OrderByDescending(s => s.Value))
                 {
-                    lines.Add($"    可在 {source.Key} 挖掘古器物点获得，概率约 {source.Value * 100:0.#}%");
+                    lines.Add(ReportLine.Of($"    可在 {source.Key} 挖掘古器物点获得，概率约 {source.Value * 100:0.#}%"));
                 }
             }
 

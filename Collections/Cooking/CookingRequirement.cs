@@ -2,6 +2,7 @@ namespace StardewClaudeCompanion
 {
     public class CookingRequirement
     {
+        public string ItemId = "";
         public string EnglishKey = "";
         public string NameZh = "";
         public bool IsKnown;

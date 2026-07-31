@@ -17,6 +17,8 @@ namespace StardewClaudeCompanion
         private const int WindowWidth = 1100;
         private const int WindowHeight = 680;
         private const int LineHeight = 26;
+        private const int IconSize = 32;
+        private const int IconGutter = 40; // 图标列宽度，文字统一从这里开始画
         private const int ChatTabIndex = 5;
 
         // 复用游戏收藏页(CollectionsPage)/游戏菜单(GameMenu)里真实的图标坐标，视觉上和游戏自带菜单保持一致
@@ -45,11 +47,20 @@ namespace StardewClaudeCompanion
         private readonly ClickableTextureComponent sendButton;
 
         private int selectedTab;
-        private List<string> currentReportLines = new();
-        private List<string> wrappedLines = new();
+        private List<ReportLine> currentReportLines = new();
+        private List<WrappedLine> wrappedLines = new();
         private int scrollOffset;
         private Task<string>? pendingResponse;
         private SpriteFont? contentFont;
+
+        // 换行后的一行显示内容；ItemId/IsEntryStart 只在该逻辑条目的第一条物理行上设置，
+        // 用来在这一行画图标，以及在这一行上方画分割线。
+        private class WrappedLine
+        {
+            public string Text = "";
+            public string? ItemId;
+            public bool IsEntryStart;
+        }
 
         public CompanionMenu(
             FishCollectionService fishService,
@@ -126,6 +137,29 @@ namespace StardewClaudeCompanion
             }
         }
 
+        private readonly Dictionary<string, Item?> iconItemCache = new();
+
+        private void DrawItemIcon(SpriteBatch b, string itemId, Vector2 position)
+        {
+            if (!this.iconItemCache.TryGetValue(itemId, out var item))
+            {
+                try
+                {
+                    item = ItemRegistry.Create(itemId, allowNull: true);
+                }
+                catch
+                {
+                    item = null;
+                }
+                this.iconItemCache[itemId] = item;
+            }
+
+            // drawInMenu 以 position + (32,32) 为图标中心画图（不随 scaleSize 缩放），
+            // 这里 scaleSize=0.5 时图标最终是 32x32，所以要把中心点往左上退 16px，
+            // 才能让图标的左上角落在调用方传入的 position 上。
+            item?.drawInMenu(b, position - new Vector2(16, 16), 0.5f, 1f, 0.9f, StackDrawType.Hide, Color.White, drawShadow: false);
+        }
+
         private void SelectTab(int index)
         {
             this.selectedTab = index;
@@ -148,7 +182,7 @@ namespace StardewClaudeCompanion
                     2 => this.mineralService.GetMissingMineralsReport(),
                     3 => this.artifactService.GetMissingArtifactsReport(),
                     4 => this.cookingService.GetMissingRecipesReport(),
-                    _ => new List<string>()
+                    _ => new List<ReportLine>()
                 };
             }
 
@@ -157,17 +191,40 @@ namespace StardewClaudeCompanion
 
         private void RebuildWrappedLines()
         {
-            var source = this.selectedTab == ChatTabIndex ? this.chatHistory : this.currentReportLines;
-            var lines = new List<string>();
             var font = this.contentFont ?? Game1.smallFont;
+            var lines = new List<WrappedLine>();
 
-            foreach (var line in source)
+            if (this.selectedTab == ChatTabIndex)
             {
-                lines.AddRange(WrapLine(line, font, this.ContentWidth));
-            }
+                foreach (var chatLine in this.chatHistory)
+                {
+                    foreach (var wrapped in WrapLine(chatLine, font, this.ContentWidth))
+                        lines.Add(new WrappedLine { Text = wrapped });
+                }
 
-            if (this.selectedTab == ChatTabIndex && this.pendingResponse != null)
-                lines.Add("Claude 正在思考...");
+                if (this.pendingResponse != null)
+                    lines.Add(new WrappedLine { Text = "Claude 正在思考..." });
+            }
+            else
+            {
+                // 有图标的行要给文字预留左边距，换行宽度相应变窄
+                int iconTextWidth = this.ContentWidth - IconGutter;
+
+                foreach (var reportLine in this.currentReportLines)
+                {
+                    int wrapWidth = reportLine.ItemId != null ? iconTextWidth : this.ContentWidth;
+                    var wrapped = WrapLine(reportLine.Text, font, wrapWidth);
+                    for (int i = 0; i < wrapped.Count; i++)
+                    {
+                        lines.Add(new WrappedLine
+                        {
+                            Text = wrapped[i],
+                            ItemId = i == 0 ? reportLine.ItemId : null,
+                            IsEntryStart = i == 0 && reportLine.IsEntryStart
+                        });
+                    }
+                }
+            }
 
             this.wrappedLines = lines;
             this.scrollOffset = Math.Min(this.scrollOffset, this.MaxScroll);
@@ -324,10 +381,30 @@ namespace StardewClaudeCompanion
             int contentY = this.yPositionOnScreen + 96;
             if (this.contentFont != null)
             {
-                for (int i = 0; i < this.VisibleLineCount && i + this.scrollOffset < this.wrappedLines.Count; i++)
+                const int EntryGap = 10; // 条目之间的额外竖直间距
+                const int IconLeftPad = 12; // 图标离窗口内框的左边距
+                int contentBottom = contentY + this.ContentAreaHeight;
+                int extraGap = 0;
+                for (int i = 0; i + this.scrollOffset < this.wrappedLines.Count; i++)
                 {
-                    string line = this.wrappedLines[i + this.scrollOffset];
-                    b.DrawString(this.contentFont, line, new Vector2(contentX, contentY + i * LineHeight), Game1.textColor);
+                    var line = this.wrappedLines[i + this.scrollOffset];
+
+                    // 新物品条目开始前留出一点间距，把不同物品的多行信息隔开
+                    if (line.IsEntryStart && i > 0)
+                        extraGap += EntryGap;
+
+                    int rowY = contentY + i * LineHeight + extraGap;
+                    if (rowY + LineHeight > contentBottom)
+                        break;
+
+                    int textX = contentX;
+                    if (line.ItemId != null)
+                    {
+                        DrawItemIcon(b, line.ItemId, new Vector2(contentX + IconLeftPad, rowY - (IconSize - LineHeight) / 2));
+                        textX = contentX + IconLeftPad + IconGutter;
+                    }
+
+                    b.DrawString(this.contentFont, line.Text, new Vector2(textX, rowY), Game1.textColor);
                 }
             }
 

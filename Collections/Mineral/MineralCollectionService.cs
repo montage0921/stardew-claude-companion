@@ -15,9 +15,9 @@ namespace StardewClaudeCompanion
             this.helper = helper;
         }
 
-        public List<string> GetMissingMineralsReport()
+        public List<ReportLine> GetMissingMineralsReport()
         {
-            var lines = new List<string>();
+            var lines = new List<ReportLine>();
 
             var allObjects = this.helper.GameContent.Load<Dictionary<string, ObjectData>>("Data/Objects");
 
@@ -38,6 +38,7 @@ namespace StardewClaudeCompanion
 
                 missing.Add(new MineralRequirement
                 {
+                    ItemId = "(O)" + objEntry.Key,
                     EnglishKey = englishKey,
                     NameZh = MineralNameData.Names.ContainsKey(englishKey) ? MineralNameData.Names[englishKey] : englishKey,
                     IsGem = isGem
@@ -46,16 +47,16 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                lines.Add("恭喜，矿物收藏已全部集齐！");
+                lines.Add(ReportLine.Of("恭喜，矿物收藏已全部集齐！"));
                 return lines;
             }
 
-            lines.Add($"矿物收藏还差 {missing.Count} 种:");
+            lines.Add(ReportLine.Of($"矿物收藏还差 {missing.Count} 种:"));
 
             foreach (var mineral in missing)
             {
                 string category = mineral.IsGem ? "宝石" : "矿物";
-                lines.Add($"  {mineral.NameZh} ({mineral.EnglishKey}) [{category}]");
+                lines.Add(ReportLine.EntryTitle($"{mineral.NameZh} ({mineral.EnglishKey}) [{category}]", mineral.ItemId));
             }
 
             return lines;

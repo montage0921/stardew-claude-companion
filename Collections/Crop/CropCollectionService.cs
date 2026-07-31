@@ -16,9 +16,9 @@ namespace StardewClaudeCompanion
             this.helper = helper;
         }
 
-        public List<string> GetMissingCropsReport()
+        public List<ReportLine> GetMissingCropsReport()
         {
-            var lines = new List<string>();
+            var lines = new List<ReportLine>();
 
             var allObjects = this.helper.GameContent.Load<Dictionary<string, ObjectData>>("Data/Objects");
             var allCrops = this.helper.GameContent.Load<Dictionary<string, CropData>>("Data/Crops");
@@ -44,6 +44,7 @@ namespace StardewClaudeCompanion
 
                 missing.Add(new CropRequirement
                 {
+                    ItemId = "(O)" + harvestId,
                     EnglishKey = englishKey,
                     NameZh = CropNameData.Names.ContainsKey(englishKey) ? CropNameData.Names[englishKey] : englishKey,
                     Seasons = cropData.Seasons?.Select(s => s.ToString()).ToList() ?? new List<string>(),
@@ -56,12 +57,12 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                lines.Add("恭喜，已运输过所有作物！");
+                lines.Add(ReportLine.Of("恭喜，已运输过所有作物！"));
                 return lines;
             }
 
             string currentSeason = Game1.currentSeason;
-            lines.Add($"作物收集还差 {missing.Count} 种，当前季节: {currentSeason}");
+            lines.Add(ReportLine.Of($"作物收集还差 {missing.Count} 种，当前季节: {currentSeason}"));
 
             foreach (var crop in missing)
             {
@@ -69,9 +70,9 @@ namespace StardewClaudeCompanion
                 string status = seasonOk ? "【能种】现在能种" : "【不能】现在不是季节";
                 string seasonsCn = crop.Seasons.Count > 0 ? string.Join(",", crop.Seasons) : "任意";
 
-                lines.Add($"  {crop.NameZh} ({crop.EnglishKey})");
-                lines.Add($"    季节: {seasonsCn} | 生长天数: {crop.DaysToGrow}");
-                lines.Add($"    {status}");
+                lines.Add(ReportLine.EntryTitle($"{crop.NameZh} ({crop.EnglishKey})", crop.ItemId));
+                lines.Add(ReportLine.Of($"    季节: {seasonsCn} | 生长天数: {crop.DaysToGrow}"));
+                lines.Add(ReportLine.Of($"    {status}"));
             }
 
             return lines;
