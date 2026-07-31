@@ -46,15 +46,15 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                lines.Add("恭喜，矿物收藏已全部集齐！ (Congratulations, completed all minerals!)");
+                lines.Add("恭喜，矿物收藏已全部集齐！");
                 return lines;
             }
 
-            lines.Add($"矿物收藏还差 {missing.Count} 种 (Missing {missing.Count} minerals):");
+            lines.Add($"矿物收藏还差 {missing.Count} 种:");
 
             foreach (var mineral in missing)
             {
-                string category = mineral.IsGem ? "宝石 (Gem)" : "矿物 (Mineral)";
+                string category = mineral.IsGem ? "宝石" : "矿物";
                 lines.Add($"  {mineral.NameZh} ({mineral.EnglishKey}) [{category}]");
             }
 

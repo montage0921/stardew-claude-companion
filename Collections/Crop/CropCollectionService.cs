@@ -56,22 +56,21 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                lines.Add("恭喜，已运输过所有作物！ (Congratulations, shipped all crops!)");
+                lines.Add("恭喜，已运输过所有作物！");
                 return lines;
             }
 
             string currentSeason = Game1.currentSeason;
-            string seasonEn = currentSeason switch { "spring" => "Spring", "summer" => "Summer", "fall" => "Fall", "winter" => "Winter", _ => currentSeason };
-            lines.Add($"作物收集还差 {missing.Count} 种 (Missing {missing.Count} crops) | 当前季节: {currentSeason}({seasonEn})");
+            lines.Add($"作物收集还差 {missing.Count} 种，当前季节: {currentSeason}");
 
             foreach (var crop in missing)
             {
                 bool seasonOk = crop.Seasons.Count == 0 || crop.Seasons.Any(s => s.ToLower() == currentSeason.ToLower());
-                string status = seasonOk ? "✅ 现在能种 (Can plant now)" : "❌ 现在不是季节 (Wrong season)";
-                string seasonsCn = crop.Seasons.Count > 0 ? string.Join(",", crop.Seasons) : "任意 (Any)";
+                string status = seasonOk ? "【能种】现在能种" : "【不能】现在不是季节";
+                string seasonsCn = crop.Seasons.Count > 0 ? string.Join(",", crop.Seasons) : "任意";
 
                 lines.Add($"  {crop.NameZh} ({crop.EnglishKey})");
-                lines.Add($"    季节/Seasons: {seasonsCn} | 生长天数/Growth days: {crop.DaysToGrow}");
+                lines.Add($"    季节: {seasonsCn} | 生长天数: {crop.DaysToGrow}");
                 lines.Add($"    {status}");
             }
 

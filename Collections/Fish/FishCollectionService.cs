@@ -95,7 +95,7 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                lines.Add("恭喜，已完成全鱼类收集！ (Congratulations, completed all fish collection!)");
+                lines.Add("恭喜，已完成全鱼类收集！");
                 return lines;
             }
 
@@ -104,10 +104,8 @@ namespace StardewClaudeCompanion
             int currentTime = Game1.timeOfDay;
             int playerFishingLevel = Game1.player.FishingLevel;
 
-            string seasonEn = currentSeason switch { "spring" => "Spring", "summer" => "Summer", "fall" => "Fall", "winter" => "Winter", _ => currentSeason };
             string weatherCn = isRaining ? "下雨" : "晴天";
-            string weatherEn = isRaining ? "Rainy" : "Sunny";
-            lines.Add($"图鉴还差 {missing.Count} 种 (Missing {missing.Count} fish) | 当前: {currentSeason}({seasonEn})季 {weatherCn}({weatherEn}) {currentTime}点 钓鱼等级{playerFishingLevel}(Level {playerFishingLevel})");
+            lines.Add($"图鉴还差 {missing.Count} 种，当前: {currentSeason}季 {weatherCn} {currentTime}点 钓鱼等级{playerFishingLevel}");
 
             foreach (var fish in missing)
             {
@@ -118,14 +116,15 @@ namespace StardewClaudeCompanion
                 bool levelOk = playerFishingLevel >= fish.MinFishingLevel;
 
                 bool canCatchNow = seasonOk && weatherOk && levelOk;
-                string status = canCatchNow ? "✅ 现在能钓 (Can catch now)" : "❌ 现在不行 (Cannot catch now)";
+                string status = canCatchNow ? "【能钓】现在能钓" : "【不能】现在不行";
 
                 lines.Add($"  {fish.NameZh} ({fish.EnglishKey})");
-                string locationStr = fish.Locations.Count > 0 ? string.Join(",", fish.Locations) : "特殊地点 (Special location)";
-                string seasonsStr = fish.Seasons.Count > 0 ? string.Join(",", fish.Seasons) : "任意 (Any)";
-                string weatherStr = fish.Weather == "both" || string.IsNullOrEmpty(fish.Weather) ? "任意 (Both)" :
-                                    fish.Weather == "rainy" ? "下雨 (Rainy)" : "晴天 (Sunny)";
-                lines.Add($"    季节/Seasons: {seasonsStr} | 天气/Weather: {weatherStr} | 需等级/Level: {fish.MinFishingLevel} | 地点/Location: {locationStr}");
+                string locationStr = fish.Locations.Count > 0 ? string.Join(",", fish.Locations) : "特殊地点";
+                string seasonsStr = fish.Seasons.Count > 0 ? string.Join(",", fish.Seasons) : "任意";
+                string weatherStr = fish.Weather == "both" || string.IsNullOrEmpty(fish.Weather) ? "任意" :
+                                    fish.Weather == "rainy" ? "下雨" : "晴天";
+                lines.Add($"    季节: {seasonsStr} | 天气: {weatherStr} | 需等级: {fish.MinFishingLevel}");
+                lines.Add($"    地点: {locationStr}");
                 lines.Add($"    {status}");
             }
 

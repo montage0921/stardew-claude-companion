@@ -39,7 +39,9 @@
       "Bash(rm -f \"/a/Steam/steamapps/common/Stardew Valley/Mods/StardewClaudeCompanion/System.Windows.Forms.dll\")",
       "Bash(rm -f \"/a/Steam/steamapps/common/Stardew Valley/Mods/StardewClaudeCompanion/System.Drawing.Common.dll\")",
       "Bash(rm -f \"/a/Steam/steamapps/common/Stardew Valley/Mods/StardewClaudeCompanion/Microsoft.Win32.SystemEvents.dll\")",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\nicai\\AppData\\Local\\Temp\\claude\\c--Users-nicai-source-repos-stardew-claude-companion-StardewClaudeCompanion\\fcfadeaf-b370-4900-b942-e1401e3a224b\\scratchpad\\inspect",

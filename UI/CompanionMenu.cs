@@ -14,9 +14,9 @@ namespace StardewClaudeCompanion
 {
     public class CompanionMenu : IClickableMenu
     {
-        private const int WindowWidth = 900;
-        private const int WindowHeight = 640;
-        private const int LineHeight = 28;
+        private const int WindowWidth = 1100;
+        private const int WindowHeight = 680;
+        private const int LineHeight = 26;
         private const int ChatTabIndex = 5;
 
         // 复用游戏收藏页(CollectionsPage)/游戏菜单(GameMenu)里真实的图标坐标，视觉上和游戏自带菜单保持一致
@@ -45,7 +45,6 @@ namespace StardewClaudeCompanion
         private readonly ClickableTextureComponent sendButton;
 
         private int selectedTab;
-        private string? hoverText;
         private List<string> currentReportLines = new();
         private List<string> wrappedLines = new();
         private int scrollOffset;
@@ -164,33 +163,7 @@ namespace StardewClaudeCompanion
 
             foreach (var line in source)
             {
-                if (font.MeasureString(line).X <= this.ContentWidth)
-                {
-                    lines.Add(line);
-                }
-                else
-                {
-                    // 逐字符添加，超过宽度就换行
-                    var currentLine = new System.Text.StringBuilder();
-                    foreach (char c in line)
-                    {
-                        currentLine.Append(c);
-                        if (font.MeasureString(currentLine.ToString()).X > this.ContentWidth)
-                        {
-                            // 删掉最后加的字符，保存当前行
-                            currentLine.Length -= 1;
-                            if (currentLine.Length > 0)
-                                lines.Add(currentLine.ToString());
-
-                            // 重新开始新行，包含刚才的字符
-                            currentLine.Clear();
-                            currentLine.Append(c);
-                        }
-                    }
-
-                    if (currentLine.Length > 0)
-                        lines.Add(currentLine.ToString());
-                }
+                lines.AddRange(WrapLine(line, font, this.ContentWidth));
             }
 
             if (this.selectedTab == ChatTabIndex && this.pendingResponse != null)
@@ -198,6 +171,60 @@ namespace StardewClaudeCompanion
 
             this.wrappedLines = lines;
             this.scrollOffset = Math.Min(this.scrollOffset, this.MaxScroll);
+        }
+
+        private static List<string> WrapLine(string line, SpriteFont font, int maxWidth)
+        {
+            var result = new List<string>();
+            if (font.MeasureString(line).X <= maxWidth)
+            {
+                result.Add(line);
+                return result;
+            }
+
+            // 把文本切成不可再拆的"单元"：西文按空格分词（单词整体不切断），中文/符号逐字符独立
+            var units = new List<string>();
+            var word = new System.Text.StringBuilder();
+            foreach (char c in line)
+            {
+                bool isAscii = c < 128 && !char.IsWhiteSpace(c);
+                if (isAscii)
+                {
+                    word.Append(c);
+                }
+                else
+                {
+                    if (word.Length > 0)
+                    {
+                        units.Add(word.ToString());
+                        word.Clear();
+                    }
+                    units.Add(c.ToString());
+                }
+            }
+            if (word.Length > 0)
+                units.Add(word.ToString());
+
+            var currentLine = new System.Text.StringBuilder();
+            foreach (var unit in units)
+            {
+                string candidate = currentLine.ToString() + unit;
+                if (currentLine.Length > 0 && font.MeasureString(candidate).X > maxWidth)
+                {
+                    result.Add(currentLine.ToString());
+                    currentLine.Clear();
+                    currentLine.Append(unit.TrimStart());
+                }
+                else
+                {
+                    currentLine.Append(unit);
+                }
+            }
+
+            if (currentLine.Length > 0)
+                result.Add(currentLine.ToString());
+
+            return result;
         }
 
         private void SendChatMessage()
@@ -279,16 +306,6 @@ namespace StardewClaudeCompanion
         {
             base.performHoverAction(x, y);
             this.chatInput.Hover(x, y);
-
-            this.hoverText = null;
-            foreach (var tab in this.tabButtons)
-            {
-                if (tab.containsPoint(x, y))
-                {
-                    this.hoverText = tab.hoverText;
-                    break;
-                }
-            }
         }
 
         public override void draw(SpriteBatch b)
@@ -321,9 +338,6 @@ namespace StardewClaudeCompanion
             }
 
             base.draw(b);
-
-            if (!string.IsNullOrEmpty(this.hoverText))
-                IClickableMenu.drawHoverText(b, this.hoverText, Game1.smallFont);
 
             this.drawMouse(b);
         }

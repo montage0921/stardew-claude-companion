@@ -45,11 +45,11 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                lines.Add("恭喜，博物馆古器物已全部捐赠！ (Congratulations, donated all artifacts!)");
+                lines.Add("恭喜，博物馆古器物已全部捐赠！");
                 return lines;
             }
 
-            lines.Add($"博物馆古器物收藏还差 {missing.Count} 件 (Missing {missing.Count} artifacts):");
+            lines.Add($"博物馆古器物收藏还差 {missing.Count} 件:");
 
             foreach (var artifact in missing)
             {
@@ -57,13 +57,13 @@ namespace StardewClaudeCompanion
 
                 if (artifact.DigSources.Count == 0)
                 {
-                    lines.Add("    获得方式 (Source): 不是通过挖掘古器物地点获得 (Not from digging artifact spots)");
+                    lines.Add("    获得方式: 不是通过挖掘古器物地点获得");
                     continue;
                 }
 
                 foreach (var source in artifact.DigSources.OrderByDescending(s => s.Value))
                 {
-                    lines.Add($"    可在 {source.Key} 挖掘古器物点获得 (Can dig at {source.Key}), 概率约 {source.Value * 100:0.#}% (Chance ~{source.Value * 100:0.#}%)");
+                    lines.Add($"    可在 {source.Key} 挖掘古器物点获得，概率约 {source.Value * 100:0.#}%");
                 }
             }
 

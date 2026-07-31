@@ -70,20 +70,20 @@ namespace StardewClaudeCompanion
 
             if (missing.Count == 0)
             {
-                lines.Add("恭喜，所有料理都做过了！ (Congratulations, cooked all recipes!)");
+                lines.Add("恭喜，所有料理都做过了！");
                 return lines;
             }
 
-            lines.Add($"料理收藏还差 {missing.Count} 道 (Missing {missing.Count} recipes):");
+            lines.Add($"料理收藏还差 {missing.Count} 道:");
 
             foreach (var recipe in missing)
             {
-                string status = recipe.IsKnown ? "✅ 已学会，还没做过 (Learned but not cooked)" : "❌ 还没学会配方 (Recipe unknown)";
+                string status = recipe.IsKnown ? "【已学会】还没做过" : "【未学会】还没学会配方";
                 lines.Add($"  {recipe.NameZh} ({recipe.EnglishKey}) - {status}");
 
                 if (recipe.Ingredients.Count == 0)
                 {
-                    lines.Add("    (无需材料 / No ingredients needed)");
+                    lines.Add("    (无需材料)");
                     continue;
                 }
 
@@ -91,8 +91,8 @@ namespace StardewClaudeCompanion
                 {
                     string need = $"{ingredient.Name} x{ingredient.RequiredCount}";
                     string have = ingredient.MissingCount > 0
-                        ? $"(现有 {ingredient.OwnedCount}，还缺 {ingredient.MissingCount} / Have {ingredient.OwnedCount}, need {ingredient.MissingCount} more)"
-                        : "(已备齐 / Ready)";
+                        ? $"(现有 {ingredient.OwnedCount}，还缺 {ingredient.MissingCount})"
+                        : "(已备齐)";
                     lines.Add($"    需要 {need} {have}");
                 }
             }
