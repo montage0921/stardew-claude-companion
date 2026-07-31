@@ -15,6 +15,7 @@ namespace StardewClaudeCompanion
         private ArtifactCollectionService artifactService = null!;
         private CookingCollectionService cookingService = null!;
         private List<string> chatHistory = new();
+        private CompanionHudButton hudButton = null!;
 
         public override void Entry(IModHelper helper)
         {
@@ -25,8 +26,11 @@ namespace StardewClaudeCompanion
             this.mineralService = new MineralCollectionService(this.Helper);
             this.artifactService = new ArtifactCollectionService(this.Helper);
             this.cookingService = new CookingCollectionService(this.Helper);
+            this.hudButton = new CompanionHudButton(this.Helper);
             this.Monitor.Log("Stardew Claude Companion loaded successfully!", LogLevel.Info);
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
+            helper.Events.Display.RenderedHud += this.OnRenderedHud;
+            helper.Events.Input.ButtonPressed += this.OnHudButtonClicked;
         }
 
         private void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
@@ -36,16 +40,45 @@ namespace StardewClaudeCompanion
 
             if (e.Button == SButton.F8 && Game1.activeClickableMenu == null)
             {
-                Game1.activeClickableMenu = new CompanionMenu(
-                    this.fishService,
-                    this.cropService,
-                    this.mineralService,
-                    this.artifactService,
-                    this.cookingService,
-                    this.claudeClient,
-                    this.Helper,
-                    this.chatHistory);
+                this.OpenCompanionMenu();
             }
+        }
+
+        private void OnRenderedHud(object? sender, RenderedHudEventArgs e)
+        {
+            if (!Context.IsWorldReady)
+                return;
+
+            this.hudButton.Draw(e.SpriteBatch);
+        }
+
+        private void OnHudButtonClicked(object? sender, ButtonPressedEventArgs e)
+        {
+            if (!Context.IsWorldReady || e.Button != SButton.MouseLeft)
+                return;
+
+            // 显式用 ui_scale:true 换算，和 Draw() 里 Game1.getMouseX/Y() 在 HUD 阶段的换算方式保持一致，
+            // 不依赖 Game1.uiMode 这个在输入事件触发时可能还没切到位的全局状态。
+            int x = Game1.getMouseX(ui_scale: true);
+            int y = Game1.getMouseY(ui_scale: true);
+            if (this.hudButton.TryHandleClick(x, y))
+            {
+                this.OpenCompanionMenu();
+                this.Helper.Input.Suppress(e.Button);
+            }
+        }
+
+        private void OpenCompanionMenu()
+        {
+            Game1.activeClickableMenu = new CompanionMenu(
+                this.fishService,
+                this.cropService,
+                this.mineralService,
+                this.artifactService,
+                this.cookingService,
+                this.claudeClient,
+                this.Helper,
+                this.chatHistory);
         }
     }
 }
