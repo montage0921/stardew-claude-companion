@@ -29,13 +29,14 @@ namespace StardewClaudeCompanion
 
             var requestBody = new
             {
-                model = "claude-haiku-4-5",
+                model = "claude-sonnet-5",
                 max_tokens = 1024,
-                // Haiku 4.5 不在 web_search_20260209(动态过滤版) 的支持列表里，用基础版 _20250305。
+                thinking = new { type = "disabled" },
+                // Sonnet 5 支持带动态过滤的新版 web_search，搜索结果处理更精准。
                 // 只在问题看起来需要时效性信息时才会真正触发搜索，多数游戏内数据问答不会用到，不额外耗时耗token。
                 tools = new object[]
                 {
-                    new { type = "web_search_20250305", name = "web_search", max_uses = 3 }
+                    new { type = "web_search_20260209", name = "web_search", max_uses = 3 }
                 },
                 messages = messageObjects
             };

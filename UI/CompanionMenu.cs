@@ -53,6 +53,7 @@ namespace StardewClaudeCompanion
         private readonly int tabY;
         private readonly TextBox chatInput;
         private readonly ClickableTextureComponent sendButton;
+        private readonly ClickableComponent deleteButton;
 
         private int selectedTab;
         private List<ReportLine> currentReportLines = new();
@@ -118,7 +119,7 @@ namespace StardewClaudeCompanion
             {
                 X = this.xPositionOnScreen + 32,
                 Y = this.yPositionOnScreen + WindowHeight - 80,
-                Width = WindowWidth - 176,
+                Width = WindowWidth - 176 - 128, // 给右边的清空按钮腾出空间
                 Height = 56
             };
             this.chatInput.OnEnterPressed += _ => this.SendChatMessage();
@@ -128,6 +129,10 @@ namespace StardewClaudeCompanion
                 Game1.mouseCursors,
                 Game1.getSourceRectForStandardTileSheet(Game1.mouseCursors, 46),
                 1f);
+
+            this.deleteButton = new ClickableComponent(
+                new Rectangle(this.sendButton.bounds.X + this.sendButton.bounds.Width + 8, this.chatInput.Y, 112, 56),
+                "delete");
 
             this.SelectTab(0);
         }
@@ -468,6 +473,25 @@ namespace StardewClaudeCompanion
             {
                 this.SendChatMessage();
             }
+
+            if (this.selectedTab == ChatTabIndex && this.deleteButton.bounds.Contains(x, y))
+            {
+                this.ClearChat();
+            }
+        }
+
+        // 同时清空展示用的聊天记录和发给API的历史，下次提问相当于全新对话开始。
+        private void ClearChat()
+        {
+            this.chatHistory.Clear();
+            this.apiChatHistory.Clear();
+            Game1.playSound("smallSelect");
+
+            if (this.selectedTab == ChatTabIndex)
+            {
+                this.RebuildWrappedLines();
+                this.scrollOffset = 0;
+            }
         }
 
         public override void receiveScrollWheelAction(int direction)
@@ -573,6 +597,26 @@ namespace StardewClaudeCompanion
                 }
 
                 this.sendButton.draw(b);
+
+                // 简单的文字链接样式，不用木框，避免和OK按钮抢视觉、显得突兀
+                if (this.contentFont != null)
+                {
+                    bool deleteHovered = this.deleteButton.bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
+                    var textSize = this.contentFont.MeasureString("Delete Chat");
+                    var textPos = new Vector2(
+                        this.deleteButton.bounds.X + (this.deleteButton.bounds.Width - textSize.X) / 2f,
+                        this.deleteButton.bounds.Y + (this.deleteButton.bounds.Height - textSize.Y) / 2f);
+
+                    Color textColor = deleteHovered ? Color.Firebrick : new Color(120, 100, 90);
+                    b.DrawString(this.contentFont, "Delete Chat", textPos, textColor);
+
+                    if (deleteHovered)
+                    {
+                        b.Draw(Game1.staminaRect,
+                            new Rectangle((int)textPos.X, (int)(textPos.Y + textSize.Y), (int)textSize.X, 1),
+                            textColor);
+                    }
+                }
             }
 
             base.draw(b);
