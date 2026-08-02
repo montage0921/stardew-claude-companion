@@ -15,17 +15,18 @@ namespace StardewClaudeCompanion
 {
     public class CompanionMenu : IClickableMenu
     {
-        private const int WindowWidth = 1100;
+        private const int WindowWidth = 1280;
         private const int WindowHeight = 680;
         private const int LineHeight = 26;
         private const int IconSize = 32;
         private const int IconGutter = 40; // 图标列宽度，文字统一从这里开始画
         private const int GrowingCropsTabIndex = 5;
         private const int ProcessingMachinesTabIndex = 6;
-        private const int ChatTabIndex = 7;
+        private const int AchievementsTabIndex = 7;
+        private const int ChatTabIndex = 8;
 
         // 复用游戏收藏页(CollectionsPage)/游戏菜单(GameMenu)里真实的图标坐标，视觉上和游戏自带菜单保持一致。
-        // ItemId 非空时改用真实物品(浇水壶/橡木桶)画图标，避免瞎猜 mouseCursors 坐标猜错图案。
+        // ItemId 非空时改用真实物品(浇水壶/橡木桶等)画图标，避免瞎猜 mouseCursors 坐标猜错图案。
         private static readonly (string Label, Rectangle IconSource, string? ItemId)[] Tabs =
         {
             ("鱼类", new Rectangle(640, 64, 16, 16), null),
@@ -35,6 +36,7 @@ namespace StardewClaudeCompanion
             ("料理", new Rectangle(688, 64, 16, 16), null),
             ("作物进度", default, "(T)WateringCan"),
             ("制造进度", default, "(BC)163"),
+            ("成就", default, "(O)74"), // 五彩碎片，待验证
             ("Claude", new Rectangle(32, 368, 16, 16), null),
         };
 
@@ -44,6 +46,7 @@ namespace StardewClaudeCompanion
         private readonly ArtifactCollectionService artifactService;
         private readonly CookingCollectionService cookingService;
         private readonly InProgressService inProgressService;
+        private readonly AchievementCollectionService achievementService;
         private readonly ClaudeApiClient claudeClient;
         private readonly IModHelper helper;
         private readonly List<string> chatHistory;
@@ -78,6 +81,7 @@ namespace StardewClaudeCompanion
             ArtifactCollectionService artifactService,
             CookingCollectionService cookingService,
             InProgressService inProgressService,
+            AchievementCollectionService achievementService,
             ClaudeApiClient claudeClient,
             IModHelper helper,
             List<string> chatHistory,
@@ -95,6 +99,7 @@ namespace StardewClaudeCompanion
             this.artifactService = artifactService;
             this.cookingService = cookingService;
             this.inProgressService = inProgressService;
+            this.achievementService = achievementService;
             this.claudeClient = claudeClient;
             this.helper = helper;
             this.chatHistory = chatHistory;
@@ -229,6 +234,7 @@ namespace StardewClaudeCompanion
                     4 => this.cookingService.GetMissingRecipesReport(),
                     GrowingCropsTabIndex => this.inProgressService.GetGrowingCropsReport(),
                     ProcessingMachinesTabIndex => this.inProgressService.GetProcessingMachinesReport(),
+                    AchievementsTabIndex => this.achievementService.GetMissingAchievementsReport(),
                     _ => new List<ReportLine>()
                 };
             }

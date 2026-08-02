@@ -15,6 +15,7 @@ namespace StardewClaudeCompanion
         private ArtifactCollectionService artifactService = null!;
         private CookingCollectionService cookingService = null!;
         private InProgressService inProgressService = null!;
+        private AchievementCollectionService achievementService = null!;
         private List<string> chatHistory = new();
         private List<ChatTurn> apiChatHistory = new();
         private CompanionHudButton hudButton = null!;
@@ -29,6 +30,7 @@ namespace StardewClaudeCompanion
             this.artifactService = new ArtifactCollectionService(this.Helper);
             this.cookingService = new CookingCollectionService(this.Helper);
             this.inProgressService = new InProgressService();
+            this.achievementService = new AchievementCollectionService(this.Helper);
             this.hudButton = new CompanionHudButton(this.Helper);
             this.Monitor.Log("Stardew Claude Companion loaded successfully!", LogLevel.Info);
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
@@ -44,6 +46,17 @@ namespace StardewClaudeCompanion
             if (e.Button == SButton.F8 && Game1.activeClickableMenu == null)
             {
                 this.OpenCompanionMenu();
+            }
+
+            // 临时诊断：验证候选物品ID对应的真实名称，确认后会删除
+            if (e.Button == SButton.F9)
+            {
+                string[] candidates = { "(O)74", "(O)168", "(O)166", "(O)771", "(O)797", "(O)789", "(O)373", "(BC)102" };
+                foreach (var id in candidates)
+                {
+                    var item = StardewValley.ItemRegistry.Create(id, allowNull: true);
+                    this.Monitor.Log($"{id} -> {(item == null ? "NULL" : item.DisplayName)}", LogLevel.Alert);
+                }
             }
         }
 
@@ -80,6 +93,7 @@ namespace StardewClaudeCompanion
                 this.artifactService,
                 this.cookingService,
                 this.inProgressService,
+                this.achievementService,
                 this.claudeClient,
                 this.Helper,
                 this.chatHistory,
