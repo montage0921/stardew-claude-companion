@@ -10,60 +10,66 @@ namespace StardewClaudeCompanion
     // 遍历所有地点（不只是玩家当前所在的那个），这样不用站在农场也能查询。
     public class InProgressService
     {
-        public List<ReportLine> GetInProgressReport()
+        public List<ReportLine> GetGrowingCropsReport()
         {
             var lines = new List<ReportLine>();
-
             var crops = this.CollectGrowingCrops();
-            var machines = this.CollectProcessingMachines();
 
-            if (crops.Count == 0 && machines.Count == 0)
+            if (crops.Count == 0)
             {
-                lines.Add(ReportLine.Of("目前没有正在生长的作物，也没有正在加工的机器。"));
+                lines.Add(ReportLine.Of("目前没有正在生长的作物。"));
                 return lines;
             }
 
-            if (crops.Count > 0)
+            // 同一块地点里、同一种作物、可摘状态、剩余天数相同的合并成一行，不然种一整片地全部单独列出会很长
+            var groups = crops
+                .GroupBy(c => (c.ItemId, c.LocationName, c.HasHarvestableFruit, c.DaysRemaining))
+                .OrderBy(g => g.Key.HasHarvestableFruit ? 0 : 1)
+                .ThenBy(g => g.Key.DaysRemaining);
+
+            lines.Add(ReportLine.Of($"正在生长的作物 (共 {crops.Count} 株):"));
+            foreach (var group in groups)
             {
-                // 同一块地点里、同一种作物、可摘状态、剩余天数相同的合并成一行，不然种一整片地全部单独列出会很长
-                var groups = crops
-                    .GroupBy(c => (c.ItemId, c.LocationName, c.HasHarvestableFruit, c.DaysRemaining))
-                    .OrderBy(g => g.Key.HasHarvestableFruit ? 0 : 1)
-                    .ThenBy(g => g.Key.DaysRemaining);
+                var first = group.First();
+                int count = group.Count();
+                lines.Add(ReportLine.EntryTitle($"{first.NameZh} ({first.EnglishKey}) x{count} - {first.LocationName}", first.ItemId));
 
-                lines.Add(ReportLine.Of($"正在生长的作物 (共 {crops.Count} 株):"));
-                foreach (var group in groups)
-                {
-                    var first = group.First();
-                    int count = group.Count();
-                    lines.Add(ReportLine.EntryTitle($"{first.NameZh} ({first.EnglishKey}) x{count} - {first.LocationName}", first.ItemId));
-
-                    string status = first.HasHarvestableFruit
-                        ? "    已成熟，可以收获"
-                        : $"    还需 {Math.Max(1, first.DaysRemaining)} 天成熟/再长出";
-                    lines.Add(ReportLine.Of(status));
-                }
+                string status = first.HasHarvestableFruit
+                    ? "    已成熟，可以收获"
+                    : $"    还需 {Math.Max(1, first.DaysRemaining)} 天成熟/再长出";
+                lines.Add(ReportLine.Of(status));
             }
 
-            if (machines.Count > 0)
-            {
-                // 同一块地点里、同一种机器、同一种产出、剩余时间相同的合并成一行
-                var groups = machines
-                    .GroupBy(m => (m.MachineItemId, m.OutputEnglishKey, m.LocationName, m.IsReady, m.MinutesRemaining))
-                    .OrderBy(g => g.Key.IsReady ? 0 : 1)
-                    .ThenBy(g => g.Key.MinutesRemaining);
+            return lines;
+        }
 
-                lines.Add(ReportLine.Of($"正在加工的机器 (共 {machines.Count} 台):"));
-                foreach (var group in groups)
-                {
-                    var first = group.First();
-                    int count = group.Count();
-                    lines.Add(ReportLine.EntryTitle($"{first.MachineNameZh} ({first.MachineEnglishKey}) x{count} - {first.LocationName}", first.MachineItemId));
-                    lines.Add(ReportLine.Of($"    正在制作: {first.OutputNameZh} ({first.OutputEnglishKey})"));
-                    lines.Add(ReportLine.Of(first.IsReady
-                        ? "    已完成，可以收取"
-                        : $"    还需约 {first.MinutesRemaining} 分钟 (约 {first.MinutesRemaining / 60} 小时 {first.MinutesRemaining % 60} 分钟)"));
-                }
+        public List<ReportLine> GetProcessingMachinesReport()
+        {
+            var lines = new List<ReportLine>();
+            var machines = this.CollectProcessingMachines();
+
+            if (machines.Count == 0)
+            {
+                lines.Add(ReportLine.Of("目前没有正在加工的机器。"));
+                return lines;
+            }
+
+            // 同一块地点里、同一种机器、同一种产出、剩余时间相同的合并成一行
+            var groups = machines
+                .GroupBy(m => (m.MachineItemId, m.OutputEnglishKey, m.LocationName, m.IsReady, m.MinutesRemaining))
+                .OrderBy(g => g.Key.IsReady ? 0 : 1)
+                .ThenBy(g => g.Key.MinutesRemaining);
+
+            lines.Add(ReportLine.Of($"正在加工的机器 (共 {machines.Count} 台):"));
+            foreach (var group in groups)
+            {
+                var first = group.First();
+                int count = group.Count();
+                lines.Add(ReportLine.EntryTitle($"{first.MachineNameZh} ({first.MachineEnglishKey}) x{count} - {first.LocationName}", first.MachineItemId));
+                lines.Add(ReportLine.Of($"    正在制作: {first.OutputNameZh} ({first.OutputEnglishKey})"));
+                lines.Add(ReportLine.Of(first.IsReady
+                    ? "    已完成，可以收取"
+                    : $"    还需约 {first.MinutesRemaining} 分钟 (约 {first.MinutesRemaining / 60} 小时 {first.MinutesRemaining % 60} 分钟)"));
             }
 
             return lines;

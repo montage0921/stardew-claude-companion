@@ -20,19 +20,22 @@ namespace StardewClaudeCompanion
         private const int LineHeight = 26;
         private const int IconSize = 32;
         private const int IconGutter = 40; // 图标列宽度，文字统一从这里开始画
-        private const int InProgressTabIndex = 5;
-        private const int ChatTabIndex = 6;
+        private const int GrowingCropsTabIndex = 5;
+        private const int ProcessingMachinesTabIndex = 6;
+        private const int ChatTabIndex = 7;
 
-        // 复用游戏收藏页(CollectionsPage)/游戏菜单(GameMenu)里真实的图标坐标，视觉上和游戏自带菜单保持一致
-        private static readonly (string Label, Rectangle IconSource)[] Tabs =
+        // 复用游戏收藏页(CollectionsPage)/游戏菜单(GameMenu)里真实的图标坐标，视觉上和游戏自带菜单保持一致。
+        // ItemId 非空时改用真实物品(浇水壶/橡木桶)画图标，避免瞎猜 mouseCursors 坐标猜错图案。
+        private static readonly (string Label, Rectangle IconSource, string? ItemId)[] Tabs =
         {
-            ("鱼类", new Rectangle(640, 64, 16, 16)),
-            ("作物", new Rectangle(640, 80, 16, 16)),
-            ("矿物", new Rectangle(672, 64, 16, 16)),
-            ("古器物", new Rectangle(656, 64, 16, 16)),
-            ("料理", new Rectangle(688, 64, 16, 16)),
-            ("进行中", new Rectangle(410, 501, 9, 9)), // 时钟图标
-            ("Claude", new Rectangle(32, 368, 16, 16)),
+            ("鱼类", new Rectangle(640, 64, 16, 16), null),
+            ("作物", new Rectangle(640, 80, 16, 16), null),
+            ("矿物", new Rectangle(672, 64, 16, 16), null),
+            ("古器物", new Rectangle(656, 64, 16, 16), null),
+            ("料理", new Rectangle(688, 64, 16, 16), null),
+            ("作物进度", default, "(T)WateringCan"),
+            ("制造进度", default, "(BC)163"),
+            ("Claude", new Rectangle(32, 368, 16, 16), null),
         };
 
         private readonly FishCollectionService fishService;
@@ -166,6 +169,34 @@ namespace StardewClaudeCompanion
             item?.drawInMenu(b, position - new Vector2(16, 16), 0.5f, 1f, 0.9f, StackDrawType.Hide, Color.White, drawShadow: false);
         }
 
+        // Tab图标专用：按物品贴图在源图集里的真实宽高做居中，而不是假定固定32x32——
+        // 浇水壶这类工具类物品的sourceRect比例和普通Object不同，固定尺寸居中会视觉跑偏。
+        private void DrawItemIconCentered(SpriteBatch b, string itemId, Vector2 center)
+        {
+            if (!this.iconItemCache.TryGetValue(itemId, out var item))
+            {
+                try
+                {
+                    item = ItemRegistry.Create(itemId, allowNull: true);
+                }
+                catch
+                {
+                    item = null;
+                }
+                this.iconItemCache[itemId] = item;
+            }
+
+            if (item == null)
+                return;
+
+            var data = ItemRegistry.GetDataOrErrorItem(item.QualifiedItemId);
+            var sourceRect = data.GetSourceRect(0, item.ParentSheetIndex);
+
+            const float scale = 2.5f;
+            var origin = new Vector2(sourceRect.Width / 2f, sourceRect.Height / 2f);
+            b.Draw(data.GetTexture(), center, sourceRect, Color.White, 0f, origin, scale, SpriteEffects.None, 0.9f);
+        }
+
         private void SelectTab(int index)
         {
             this.selectedTab = index;
@@ -188,7 +219,8 @@ namespace StardewClaudeCompanion
                     2 => this.mineralService.GetMissingMineralsReport(),
                     3 => this.artifactService.GetMissingArtifactsReport(),
                     4 => this.cookingService.GetMissingRecipesReport(),
-                    InProgressTabIndex => this.inProgressService.GetInProgressReport(),
+                    GrowingCropsTabIndex => this.inProgressService.GetGrowingCropsReport(),
+                    ProcessingMachinesTabIndex => this.inProgressService.GetProcessingMachinesReport(),
                     _ => new List<ReportLine>()
                 };
             }
@@ -205,8 +237,15 @@ namespace StardewClaudeCompanion
             {
                 foreach (var chatLine in this.chatHistory)
                 {
-                    foreach (var wrapped in WrapLine(chatLine, font, this.ContentWidth))
-                        lines.Add(new WrappedLine { Text = wrapped });
+                    // Claude 的回复可能自带换行(Markdown 列表/多段落)，DrawString 每行只能画一条物理行，
+                    // 必须先按 \n 拆开，再对每条物理行分别做宽度折行，否则一个 WrappedLine 里
+                    // 藏着好几行文字，但外层只按一行的高度步进，会导致后面的消息画到它上面、发生重叠。
+                    foreach (var physicalLine in chatLine.Split('\n'))
+                    {
+                        string clean = StripMarkdown(physicalLine);
+                        foreach (var wrapped in WrapLine(clean, font, this.ContentWidth))
+                            lines.Add(new WrappedLine { Text = wrapped });
+                    }
                 }
 
                 if (this.pendingResponse != null)
@@ -235,6 +274,16 @@ namespace StardewClaudeCompanion
 
             this.wrappedLines = lines;
             this.scrollOffset = Math.Min(this.scrollOffset, this.MaxScroll);
+        }
+
+        // 去掉 Claude 回复里常见的 Markdown 标记符号（加粗/标题/列表项），
+        // 我们是纯文本渲染，这些符号只会原样显示成一堆星号和井号，不会真的加粗或变成标题。
+        private static string StripMarkdown(string text)
+        {
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"\*\*(.+?)\*\*", "$1");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"^#{1,6}\s*", "");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"^[-*]\s+", "• ");
+            return text;
         }
 
         private static List<string> WrapLine(string line, SpriteFont font, int maxWidth)
@@ -429,7 +478,22 @@ namespace StardewClaudeCompanion
                 var tab = this.tabButtons[i];
                 bool selected = i == this.selectedTab;
                 tab.bounds.Y = this.tabY + (selected ? 8 : 0);
-                tab.draw(b);
+
+                string? itemId = Tabs[i].ItemId;
+                if (itemId != null)
+                {
+                    // 用真实游戏物品(浇水壶/橡木桶)画Tab图标，先画个木框背景和其他Tab保持一致，
+                    // 图标居中在tab的64x64范围里
+                    IClickableMenu.drawTextureBox(b, tab.bounds.X, tab.bounds.Y, tab.bounds.Width, tab.bounds.Height, Color.White);
+                    var iconCenter = new Vector2(tab.bounds.X + tab.bounds.Width / 2f, tab.bounds.Y + tab.bounds.Height / 2f);
+                    // 浇水壶(工具类)贴图在格子里的视觉重心偏上，单独往下微调
+                    float extraYOffset = itemId == "(T)WateringCan" ? 8f : 0f;
+                    this.DrawItemIcon(b, itemId, iconCenter - new Vector2(16, 16 - extraYOffset));
+                }
+                else
+                {
+                    tab.draw(b);
+                }
             }
 
             int contentX = this.xPositionOnScreen + 32;
