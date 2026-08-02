@@ -16,6 +16,7 @@ namespace StardewClaudeCompanion
         private CookingCollectionService cookingService = null!;
         private InProgressService inProgressService = null!;
         private List<string> chatHistory = new();
+        private List<ChatTurn> apiChatHistory = new();
         private CompanionHudButton hudButton = null!;
 
         public override void Entry(IModHelper helper)
@@ -81,7 +82,8 @@ namespace StardewClaudeCompanion
                 this.inProgressService,
                 this.claudeClient,
                 this.Helper,
-                this.chatHistory);
+                this.chatHistory,
+                this.apiChatHistory);
         }
     }
 }

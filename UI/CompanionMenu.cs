@@ -47,6 +47,7 @@ namespace StardewClaudeCompanion
         private readonly ClaudeApiClient claudeClient;
         private readonly IModHelper helper;
         private readonly List<string> chatHistory;
+        private readonly List<ChatTurn> apiChatHistory;
 
         private readonly List<ClickableTextureComponent> tabButtons = new();
         private readonly int tabY;
@@ -78,7 +79,8 @@ namespace StardewClaudeCompanion
             InProgressService inProgressService,
             ClaudeApiClient claudeClient,
             IModHelper helper,
-            List<string> chatHistory)
+            List<string> chatHistory,
+            List<ChatTurn> apiChatHistory)
             : base(
                 Game1.uiViewport.Width / 2 - WindowWidth / 2,
                 Game1.uiViewport.Height / 2 - WindowHeight / 2,
@@ -95,6 +97,7 @@ namespace StardewClaudeCompanion
             this.claudeClient = claudeClient;
             this.helper = helper;
             this.chatHistory = chatHistory;
+            this.apiChatHistory = apiChatHistory;
 
             this.tabY = this.yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64;
             this.contentFont = this.TryLoadChineseFont(helper) ?? Game1.smallFont;
@@ -350,7 +353,15 @@ namespace StardewClaudeCompanion
             this.chatInput.Text = "";
 
             string context = GameSnapshotBuilder.Build(this.helper) + "\n\n" + this.BuildCollectionSummary(question) + "\n\n" + InventorySnapshotBuilder.Build();
-            this.pendingResponse = Task.Run(() => this.claudeClient.AskAsync(question, context));
+            string prompt = $"你是星露谷物语游戏助手。以下是玩家当前的游戏数据(JSON格式):\n\n{context}\n\n玩家问题: {question}\n\n请基于以上数据用简洁的中文回答。如果问题涉及游戏版本更新、最新内容等你不确定或可能过时的信息，可以使用联网搜索工具查证。回答会显示在游戏内的纯文本对话框里，不支持任何格式，所以不要使用Markdown语法（不要用**加粗**、#标题、-列表符号等），只用纯文字和换行组织内容。";
+
+            // apiChatHistory 存的是每轮"实际发给API的完整内容"，跟 chatHistory(展示用的精简文本)
+            // 分开维护，这样历史记录里的 user 消息和当时 assistant 实际看到、回复所依据的内容完全一致，
+            // 不会出现"历史记录被简化过、模型看不出上下文关联"的问题。
+            this.apiChatHistory.Add(new ChatTurn("user", prompt));
+            var messagesSnapshot = new List<ChatTurn>(this.apiChatHistory);
+
+            this.pendingResponse = Task.Run(() => this.claudeClient.AskAsync(messagesSnapshot));
 
             this.RebuildWrappedLines();
             this.scrollOffset = this.MaxScroll;
@@ -415,6 +426,20 @@ namespace StardewClaudeCompanion
                     ? this.pendingResponse.Result
                     : "[请求失败，请稍后重试]";
                 this.chatHistory.Add($"Claude: {answer}");
+
+                if (this.pendingResponse.IsCompletedSuccessfully)
+                {
+                    this.apiChatHistory.Add(new ChatTurn("assistant", answer));
+                }
+                else
+                {
+                    // 请求失败时 apiChatHistory 末尾已经是发送时加的那条 user 消息(见 SendChatMessage)，
+                    // 不撤回的话下次发送会变成连续两条 user，Anthropic API 会直接拒绝。
+                    // 撤回这条失败的提问，让用户可以重新问一遍。
+                    if (this.apiChatHistory.Count > 0 && this.apiChatHistory[^1].Role == "user")
+                        this.apiChatHistory.RemoveAt(this.apiChatHistory.Count - 1);
+                }
+
                 this.pendingResponse = null;
 
                 if (this.selectedTab == ChatTabIndex)

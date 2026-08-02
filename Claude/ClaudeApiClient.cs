@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -6,6 +8,8 @@ using System.Threading.Tasks;
 
 namespace StardewClaudeCompanion
 {
+    public record ChatTurn(string Role, string Content);
+
     public class ClaudeApiClient
     {
         private readonly string apiKey;
@@ -16,8 +20,13 @@ namespace StardewClaudeCompanion
             this.apiKey = apiKey;
         }
 
-        public async Task<string> AskAsync(string question, string gameContext)
+        // messages 是完整的对话历史，包含最新这轮的问题(带游戏数据的完整prompt)。
+        // 调用方负责拼装每条消息的具体内容，这里只负责发请求——这样调用方存下来的
+        // "历史"和实际发给API的内容能保证完全一致，不会出现历史记录和真实prompt对不上的情况。
+        public async Task<string> AskAsync(IReadOnlyList<ChatTurn> messages)
         {
+            var messageObjects = messages.Select(turn => new { role = turn.Role, content = turn.Content }).ToList();
+
             var requestBody = new
             {
                 model = "claude-haiku-4-5",
@@ -28,14 +37,7 @@ namespace StardewClaudeCompanion
                 {
                     new { type = "web_search_20250305", name = "web_search", max_uses = 3 }
                 },
-                messages = new[]
-                {
-                    new
-                    {
-                        role = "user",
-                        content = $"你是星露谷物语游戏助手。以下是玩家当前的游戏数据(JSON格式):\n\n{gameContext}\n\n玩家问题: {question}\n\n请基于以上数据用简洁的中文回答。如果问题涉及游戏版本更新、最新内容等你不确定或可能过时的信息，可以使用联网搜索工具查证。回答会显示在游戏内的纯文本对话框里，不支持任何格式，所以不要使用Markdown语法（不要用**加粗**、#标题、-列表符号等），只用纯文字和换行组织内容。"
-                    }
-                }
+                messages = messageObjects
             };
 
             string jsonBody = JsonSerializer.Serialize(requestBody);
