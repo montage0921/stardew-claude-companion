@@ -529,11 +529,24 @@ namespace StardewClaudeCompanion
 
             if (this.selectedTab == ChatTabIndex)
             {
-                // TextBox 在没有传入贴图时(我们传的是 null)不会画任何背景框，
-                // 这里手动画一个，不然输入框在视觉上完全没有边界。
+                // 不用 chatInput.Draw()：TextBox 在没有贴图(_textBoxTexture为null)时，
+                // 内部会在 Y-102 这个针对 NamingMenu 布局硬编码的偏移位置画一个 drawDialogueBox，
+                // 和我们自己画的背景框叠在一起、又落在错误位置，就是那块位置诡异的木框残影。
+                // 这里只用 chatInput 管理文字/光标状态，绘制完全自己接管。
                 IClickableMenu.drawTextureBox(b, this.chatInput.X - 8, this.chatInput.Y - 8, this.chatInput.Width + 16, this.chatInput.Height + 16, Color.White);
 
-                this.chatInput.Draw(b);
+                if (this.contentFont != null)
+                {
+                    b.DrawString(this.contentFont, this.chatInput.Text, new Vector2(this.chatInput.X + 8, this.chatInput.Y + 12), Game1.textColor);
+
+                    bool caretOn = Game1.currentGameTime.TotalGameTime.TotalMilliseconds % 1000.0 >= 500.0;
+                    if (caretOn && this.chatInput.Selected)
+                    {
+                        float textWidth = this.contentFont.MeasureString(this.chatInput.Text).X;
+                        b.Draw(Game1.staminaRect, new Rectangle(this.chatInput.X + 8 + (int)textWidth + 2, this.chatInput.Y + 8, 4, 32), Game1.textColor);
+                    }
+                }
+
                 this.sendButton.draw(b);
             }
 
