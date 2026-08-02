@@ -2,6 +2,7 @@ using StardewModdingAPI;
 using StardewValley;
 using StardewValley.GameData.Objects;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace StardewClaudeCompanion
 {
@@ -74,6 +75,12 @@ namespace StardewClaudeCompanion
                 lines.Add(ReportLine.Of("恭喜，所有料理都做过了！"));
                 return lines;
             }
+
+            // 已学会配方 + 食材已备齐(现在就能做)的排最前面，方便一眼找到能立刻做的菜
+            missing = missing
+                .OrderByDescending(r => r.IsKnown && r.Ingredients.All(i => i.MissingCount == 0))
+                .ThenByDescending(r => r.IsKnown)
+                .ToList();
 
             lines.Add(ReportLine.Of($"料理收藏还差 {missing.Count} 道:"));
 
