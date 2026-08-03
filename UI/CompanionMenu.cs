@@ -23,7 +23,8 @@ namespace StardewClaudeCompanion
         private const int GrowingCropsTabIndex = 5;
         private const int ProcessingMachinesTabIndex = 6;
         private const int AchievementsTabIndex = 7;
-        private const int ChatTabIndex = 8;
+        private const int FullShipmentTabIndex = 8;
+        private const int ChatTabIndex = 9;
 
         // 复用游戏收藏页(CollectionsPage)/游戏菜单(GameMenu)里真实的图标坐标，视觉上和游戏自带菜单保持一致。
         // ItemId 非空时改用真实物品(浇水壶/橡木桶等)画图标，避免瞎猜 mouseCursors 坐标猜错图案。
@@ -37,6 +38,7 @@ namespace StardewClaudeCompanion
             ("作物进度", default, "(T)WateringCan"),
             ("制造进度", default, "(BC)163"),
             ("成就", default, "(O)74"), // 五彩碎片，待验证
+            ("全部出货", default, "(O)16"), // 野生辣根，反编译确认的ID
             ("Claude", new Rectangle(32, 368, 16, 16), null),
         };
 
@@ -47,6 +49,7 @@ namespace StardewClaudeCompanion
         private readonly CookingCollectionService cookingService;
         private readonly InProgressService inProgressService;
         private readonly AchievementCollectionService achievementService;
+        private readonly FullShipmentCollectionService fullShipmentService;
         private readonly ClaudeApiClient claudeClient;
         private readonly IModHelper helper;
         private readonly List<string> chatHistory;
@@ -82,6 +85,7 @@ namespace StardewClaudeCompanion
             CookingCollectionService cookingService,
             InProgressService inProgressService,
             AchievementCollectionService achievementService,
+            FullShipmentCollectionService fullShipmentService,
             ClaudeApiClient claudeClient,
             IModHelper helper,
             List<string> chatHistory,
@@ -100,6 +104,7 @@ namespace StardewClaudeCompanion
             this.cookingService = cookingService;
             this.inProgressService = inProgressService;
             this.achievementService = achievementService;
+            this.fullShipmentService = fullShipmentService;
             this.claudeClient = claudeClient;
             this.helper = helper;
             this.chatHistory = chatHistory;
@@ -235,6 +240,7 @@ namespace StardewClaudeCompanion
                     GrowingCropsTabIndex => this.inProgressService.GetGrowingCropsReport(),
                     ProcessingMachinesTabIndex => this.inProgressService.GetProcessingMachinesReport(),
                     AchievementsTabIndex => this.achievementService.GetMissingAchievementsReport(),
+                    FullShipmentTabIndex => this.fullShipmentService.GetMissingShipmentReport(),
                     _ => new List<ReportLine>()
                 };
             }
