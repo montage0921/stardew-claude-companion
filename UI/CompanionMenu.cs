@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace StardewClaudeCompanion
@@ -66,6 +67,14 @@ namespace StardewClaudeCompanion
         private List<WrappedLine> wrappedLines = new();
         private int scrollOffset;
         private Task<string>? pendingResponse;
+
+        // 流式回复的中间缓冲。onDelta 回调在 HTTP 读取线程上跑，而 update()/draw() 在游戏主线程上跑，
+        // 两边都会碰这个 StringBuilder，所以所有读写都必须锁 streamLock。
+        private readonly StringBuilder streamBuffer = new();
+        private readonly object streamLock = new();
+        // 标记缓冲区自上次重排后有没有新内容，避免每帧都无谓地重算折行(折行开销不小)。
+        private volatile bool streamDirty;
+
         private SpriteFont? contentFont;
 
         // 换行后的一行显示内容；ItemId/IsEntryStart 只在该逻辑条目的第一条物理行上设置，
@@ -269,7 +278,27 @@ namespace StardewClaudeCompanion
                 }
 
                 if (this.pendingResponse != null)
-                    lines.Add(new WrappedLine { Text = "Claude 正在思考..." });
+                {
+                    // 流式进行中：把已经收到的部分正文当成一条临时的 Claude 消息画出来。
+                    // 首块到达前缓冲区是空的，这时仍然显示"正在思考"，避免出现一个空白的"Claude:"。
+                    string partial;
+                    lock (this.streamLock)
+                        partial = this.streamBuffer.ToString();
+
+                    if (partial.Length == 0)
+                    {
+                        lines.Add(new WrappedLine { Text = "Claude 正在思考..." });
+                    }
+                    else
+                    {
+                        foreach (var physicalLine in ("Claude: " + partial).Split('\n'))
+                        {
+                            string clean = StripMarkdown(physicalLine);
+                            foreach (var wrapped in WrapLine(clean, font, this.ContentWidth))
+                                lines.Add(new WrappedLine { Text = wrapped });
+                        }
+                    }
+                }
             }
             else
             {
@@ -378,7 +407,16 @@ namespace StardewClaudeCompanion
             this.apiChatHistory.Add(new ChatTurn("user", prompt));
             var messagesSnapshot = new List<ChatTurn>(this.apiChatHistory);
 
-            this.pendingResponse = Task.Run(() => this.claudeClient.AskAsync(messagesSnapshot));
+            lock (this.streamLock)
+                this.streamBuffer.Clear();
+            this.streamDirty = false;
+
+            this.pendingResponse = Task.Run(() => this.claudeClient.AskStreamingAsync(messagesSnapshot, delta =>
+            {
+                lock (this.streamLock)
+                    this.streamBuffer.Append(delta);
+                this.streamDirty = true;
+            }));
 
             this.RebuildWrappedLines();
             this.scrollOffset = this.MaxScroll;
@@ -437,12 +475,31 @@ namespace StardewClaudeCompanion
             base.update(time);
             this.chatInput.Update();
 
+            // 流式进行中：有新增内容就重排一次，让文字逐段出现。
+            // 只在聊天Tab下做，切到别的Tab时没必要重算。
+            if (this.pendingResponse != null && !this.pendingResponse.IsCompleted
+                && this.streamDirty && this.selectedTab == ChatTabIndex)
+            {
+                this.streamDirty = false;
+                bool atBottom = this.scrollOffset >= this.MaxScroll;
+                this.RebuildWrappedLines();
+                // 只有当用户本来就在底部时才自动跟随，免得他往上翻看历史时被强行拽回底部。
+                if (atBottom)
+                    this.scrollOffset = this.MaxScroll;
+            }
+
             if (this.pendingResponse != null && this.pendingResponse.IsCompleted)
             {
                 string answer = this.pendingResponse.IsCompletedSuccessfully
                     ? this.pendingResponse.Result
                     : "[请求失败，请稍后重试]";
                 this.chatHistory.Add($"Claude: {answer}");
+
+                // 完整回复已经进 chatHistory，缓冲区必须清掉，
+                // 否则 RebuildWrappedLines 会把同一段文字再画一遍。
+                lock (this.streamLock)
+                    this.streamBuffer.Clear();
+                this.streamDirty = false;
 
                 if (this.pendingResponse.IsCompletedSuccessfully)
                 {
@@ -497,6 +554,14 @@ namespace StardewClaudeCompanion
         {
             this.chatHistory.Clear();
             this.apiChatHistory.Clear();
+
+            // 清空时如果还有请求在飞，丢弃它：pendingResponse 置空后 update() 不会再去取结果，
+            // 那条迟到的回复也就不会落进已经清空的记录里。后台 Task 自己跑完就结束，不影响任何状态。
+            this.pendingResponse = null;
+            lock (this.streamLock)
+                this.streamBuffer.Clear();
+            this.streamDirty = false;
+
             Game1.playSound("smallSelect");
 
             if (this.selectedTab == ChatTabIndex)
